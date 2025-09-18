@@ -41,7 +41,7 @@ let physicsSettings = {
 let wallet = 0; // Starting wallet amount
 
 // Drop button state
-let isDropped = false; // Track if tank bottom is dropped
+let isDropped = true; // Track if tank bottom is dropped (starts as dropped/off by default)
 
 // Simulation state
 let isPaused = false;
@@ -126,8 +126,8 @@ const tankWall = Bodies.rectangle(250, 150, 500, 20, {
     render: { fillStyle: '#8B4513' }
 });
 
-// Add walls to world
-World.add(world, [leftWall, rightWall, tankTopWall, tankWall]);
+// Add walls to world (tank floor is off by default)
+World.add(world, [leftWall, rightWall, tankTopWall]);
 
 // Function to create a circle at position
 function createCircle(x, y) {
@@ -235,12 +235,12 @@ function clearAllObjects() {
     objectCount = 0;
     objectCountElement.textContent = objectCount;
     
-    // Reset drop button state and restore floor if it was dropped
-    if (isDropped) {
-        isDropped = false;
-        World.add(world, tankWall);
-        dropButton.textContent = 'Drop';
-        dropButton.style.background = '#ff4757';
+    // Reset drop button state and restore floor to default state (dropped/off)
+    if (!isDropped) {
+        isDropped = true;
+        World.remove(world, tankWall);
+        dropButton.textContent = 'Replace Floor';
+        dropButton.style.background = '#2ed573';
     }
 }
 
@@ -535,14 +535,7 @@ canvas.addEventListener('mousedown', function(event) {
     } else if (multiplierPlacementMode) {
         // Place a multiplier region at the click point
         const region = createMultiplierRegion(x, y, multiplierFactor);
-        if (region) {
-            // Region was successfully placed - disable multiplier tool and return to normal mode
-            multiplierPlacementMode = false;
-            multiplierToolButton.textContent = 'Multiplier Region Tool';
-            multiplierToolButton.style.background = '#9c88ff';
-            multiplierControls.style.display = 'none';
-            canvas.style.cursor = 'crosshair';
-        } else {
+        if (!region) {
             // Region placement failed due to collision - could show user feedback here
             console.log('Cannot place multiplier region: too close to existing region');
         }
@@ -596,14 +589,7 @@ canvas.addEventListener('mouseup', function(event) {
         const distance = Math.sqrt((wallEndX - wallStartX) ** 2 + (wallEndY - wallStartY) ** 2);
         if (distance > 10) { // Minimum wall length
             const wall = createWall(wallStartX, wallStartY, wallEndX, wallEndY);
-            if (wall) {
-                // Wall was successfully created - disable wall tool and return to normal mode
-                wallDrawingMode = false;
-                wallToolButton.textContent = 'Wall Drawing Tool';
-                wallToolButton.style.background = '#ffa502';
-                wallControls.style.display = 'none';
-                canvas.style.cursor = 'crosshair';
-            } else {
+            if (!wall) {
                 // Wall was too long, could show a message to user here
                 console.log('Wall too long! Maximum length is ' + physicsSettings.maxWallLength + ' pixels');
             }
@@ -835,6 +821,10 @@ function initializeSliders() {
 // Initialize sliders and display values
 initializeSliders();
 updateDisplayValues();
+
+// Initialize drop button state to reflect default (floor is off)
+dropButton.textContent = 'Replace Floor';
+dropButton.style.background = '#2ed573';
 
 // Start the simulation
 requestAnimationFrame(gameLoop);
