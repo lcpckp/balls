@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .simulation-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 280px;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        
+        .game-info-pane {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-width: 200px;
+            max-height: 700px;
+            overflow-y: auto;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .control-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .control-row label {
+            min-width: 100px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .control-row input[type="range"] {
+            flex: 1;
+            margin: 0 10px;
+        }
+        
+        .control-row input[type="number"] {
+            width: 60px;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .control-row .value-display {
+            min-width: 40px;
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        #canvas {
+            border: 2px solid #333;
+            background: white;
+            cursor: crosshair;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            text-align: center;
+        }
+        
+        .info {
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="control-panel">
+            <h2>Physics Controls</h2>
+            
+            <div class="control-group">
+                <h3>World Physics</h3>
+                <div class="control-row">
+                    <label>Gravity:</label>
+                    <input type="range" id="gravitySlider" min="0" max="2" step="0.1" value="0.5">
+                    <span class="value-display" id="gravityValue">0.5</span>
+                </div>
+                <div class="control-row">
+                    <label>Air Resistance:</label>
+                    <input type="range" id="airResistanceSlider" min="0" max="0.1" step="0.001" value="0">
+                    <span class="value-display" id="airResistanceValue">0.000</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Circle Properties</h3>
+                <div class="control-row">
+                    <label>Size:</label>
+                    <input type="range" id="sizeSlider" min="5" max="50" step="1" value="5">
+                    <span class="value-display" id="sizeValue">5</span>
+                </div>
+                <div class="control-row">
+                    <label>Bounciness:</label>
+                    <input type="range" id="bounceSlider" min="0" max="1" step="0.1" value="0">
+                    <span class="value-display" id="bounceValue">0.0</span>
+                </div>
+                <div class="control-row">
+                    <label>Friction:</label>
+                    <input type="range" id="frictionSlider" min="0" max="1" step="0.1" value="0">
+                    <span class="value-display" id="frictionValue">0.0</span>
+                </div>
+                <div class="control-row">
+                    <label>Density:</label>
+                    <input type="range" id="densitySlider" min="0.001" max="0.01" step="0.001" value="0.001">
+                    <span class="value-display" id="densityValue">0.001</span>
+                </div>
+                <div class="control-row">
+                    <label>Spawn Delay (ms):</label>
+                    <input type="range" id="spawnDelaySlider" min="0" max="500" step="5" value="5">
+                    <span class="value-display" id="spawnDelayValue">5</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Tools</h3>
+                <div class="control-row">
+                    <button id="wallToolButton" style="width: 100%; padding: 10px; background: #ffa502; color: white; border: none; border-radius: 4px; cursor: pointer;">Wall Drawing Tool</button>
+                </div>
+                <div id="wallControls" style="display: none;">
+                    <div class="control-row">
+                        <label>Max Wall Length:</label>
+                        <input type="range" id="maxWallLengthSlider" min="50" max="400" step="10" value="250">
+                        <span class="value-display" id="maxWallLengthValue">250</span>
+                    </div>
+                </div>
+                <div class="control-row">
+                    <button id="multiplierToolButton" style="width: 100%; padding: 10px; background: #9c88ff; color: white; border: none; border-radius: 4px; cursor: pointer;">Multiplier Region Tool</button>
+                </div>
+                <div id="multiplierControls" style="display: none;">
+                    <div class="control-row">
+                        <label>Multiplier Factor:</label>
+                        <input type="range" id="multiplierSlider" min="1" max="5" step="1" value="2">
+                        <span class="value-display" id="multiplierValue">2</span>
+                    </div>
+                    <div class="control-row">
+                        <label>Region Size:</label>
+                        <span class="value-display">60×20</span>
+                    </div>
+                    <div class="control-row">
+                        <label>Min Distance:</label>
+                        <input type="range" id="multiplierRadiusSlider" min="50" max="200" step="10" value="150">
+                        <span class="value-display" id="multiplierRadiusValue">100</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Actions</h3>
+                <div class="control-row">
+                    <button id="clearButton" style="width: 100%; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear All Objects</button>
+                </div>
+                <div class="control-row">
+                    <button id="pauseButton" style="width: 100%; padding: 10px; background: #3742fa; color: white; border: none; border-radius: 4px; cursor: pointer;">Pause/Resume</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Info</h3>
+                <div class="control-row">
+                    <label>Objects:</label>
+                    <span class="value-display" id="objectCount">0</span>
+                </div>
+                <div class="control-row">
+                    <label>FPS:</label>
+                    <span class="value-display" id="fpsCounter">60</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="simulation-area">
+            <canvas id="canvas" width="500" height="800"></canvas>
+        </div>
+        
+        <div class="game-info-pane">
+            <h2>Game Info</h2>
+            
+            <div class="control-group">
+                <h3>Wallet & Balls</h3>
+                <div class="control-row">
+                    <label>Wallet:</label>
+                    <span class="value-display" id="walletValue">$0</span>
+                </div>
+                <div class="control-row">
+                    <label>Add Balls:</label>
+                    <button id="addBallsButton" style="margin-left: 10px; padding: 4px 8px; background: #2ed573; color: white; border: none; border-radius: 4px; cursor: pointer;">+10</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Tank Controls</h3>
+                <div class="control-row">
+                    <button id="dropButton" style="width: 100%; padding: 15px; background: #ff4757; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;">Drop</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Matter.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
