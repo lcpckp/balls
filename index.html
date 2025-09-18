@@ -175,30 +175,21 @@
                     <button id="wallToolButton" style="width: 100%; padding: 10px; background: #ffa502; color: white; border: none; border-radius: 4px; cursor: pointer;">Wall Drawing Tool</button>
                 </div>
                 <div id="wallControls" style="display: none;">
-                    <div class="control-row">
-                        <label>Max Wall Length:</label>
-                        <input type="range" id="maxWallLengthSlider" min="50" max="400" step="10" value="250">
-                        <span class="value-display" id="maxWallLengthValue">250</span>
-                    </div>
+                    <!-- Wall controls removed - walls can now be any length -->
                 </div>
                 <div class="control-row">
                     <button id="multiplierToolButton" style="width: 100%; padding: 10px; background: #9c88ff; color: white; border: none; border-radius: 4px; cursor: pointer;">Multiplier Region Tool</button>
                 </div>
-                <div id="multiplierControls" style="display: none;">
-                    <div class="control-row">
-                        <label>Multiplier Factor:</label>
-                        <input type="range" id="multiplierSlider" min="1" max="5" step="1" value="2">
-                        <span class="value-display" id="multiplierValue">2</span>
-                    </div>
-                    <div class="control-row">
-                        <label>Region Size:</label>
-                        <span class="value-display">60×20</span>
-                    </div>
-                    <div class="control-row">
-                        <label>Min Distance:</label>
-                        <input type="range" id="multiplierRadiusSlider" min="50" max="200" step="10" value="150">
-                        <span class="value-display" id="multiplierRadiusValue">100</span>
-                    </div>
+                <div class="control-row" id="multiplierFactorDisplay" style="display: none;">
+                    <label>Multiplier Factor:</label>
+                    <input type="range" id="multiplierSlider" min="2" max="10" step="1" value="2">
+                    <span class="value-display" id="multiplierValue">2</span>
+                </div>
+                <div class="control-row">
+                    <button id="removerToolButton" style="width: 100%; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 4px; cursor: pointer;">Remover Tool</button>
+                </div>
+                <div class="control-row">
+                    <button id="portalToolButton" style="width: 100%; padding: 10px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">Portal Tool</button>
                 </div>
             </div>
             
@@ -254,6 +245,6 @@
 
     <!-- Matter.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=1.0.0"></script>
 </body>
 </html>
