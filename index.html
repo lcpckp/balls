@@ -8,21 +8,23 @@
         body {
             margin: 0;
             padding: 0;
-            background: #f0f0f0;
+            background: #1a1a1a;
             font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            color: #e0e0e0;
         }
         
         .container {
             display: flex;
             flex-direction: row;
             align-items: flex-start;
+            justify-content: center;
             gap: 20px;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -35,29 +37,38 @@
         }
         
         .control-panel {
-            background: white;
+            background: #2d2d2d;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            min-width: 280px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            min-width: 380px;
             max-height: 700px;
             overflow-y: auto;
+            border: 1px solid #404040;
         }
         
         .game-info-pane {
-            background: white;
+            background: #2d2d2d;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            min-width: 200px;
-            max-height: 700px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            min-width: 300px;
+            max-height: 900px;
             overflow-y: auto;
+            border: 1px solid #404040;
         }
+        
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
         
         .control-group {
             margin-bottom: 20px;
             padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #404040;
         }
         
         .control-group:last-child {
@@ -65,9 +76,14 @@
             margin-bottom: 0;
         }
         
+        .game-info-pane .control-group {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
         .control-group h3 {
             margin: 0 0 10px 0;
-            color: #333;
+            color: #e0e0e0;
             font-size: 16px;
         }
         
@@ -80,35 +96,62 @@
         .control-row label {
             min-width: 100px;
             font-size: 14px;
-            color: #666;
+            color: #b0b0b0;
         }
         
         .control-row input[type="range"] {
             flex: 1;
             margin: 0 10px;
+            background: #3a3a3a;
+            outline: none;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+        }
+        
+        .control-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 2px solid #2d2d2d;
+        }
+        
+        .control-row input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 2px solid #2d2d2d;
         }
         
         .control-row input[type="number"] {
             width: 60px;
             padding: 4px;
-            border: 1px solid #ddd;
+            border: 1px solid #555;
             border-radius: 4px;
             text-align: center;
+            background: #3a3a3a;
+            color: #e0e0e0;
         }
         
         .control-row .value-display {
             min-width: 40px;
             text-align: center;
             font-weight: bold;
-            color: #333;
+            color: #e0e0e0;
         }
         
         #canvas {
-            border: 2px solid #333;
-            background: white;
-            cursor: crosshair;
+            border: 2px solid #555;
+            background: #1e1e1e;
+            cursor: pointer;
             border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         
         .controls {
@@ -116,130 +159,551 @@
         }
         
         .info {
-            color: #666;
+            color: #b0b0b0;
             text-align: center;
         }
+        
+        /* Settings Button - Just the emoji */
+        .settings-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 30px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            padding: 0;
+            width: auto;
+            height: auto;
+        }
+        
+        .settings-button:hover {
+            transform: scale(1.2);
+        }
+        
+        /* Side Panel Styles */
+        .side-panel {
+            position: fixed;
+            top: 0;
+            left: -100%; /* Completely off-screen */
+            width: 400px;
+            height: 100vh;
+            background: #2d2d2d;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+            z-index: 1500;
+            transition: left 0.3s ease;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px;
+            border-right: 1px solid #404040;
+            /* Hide scrollbar but keep scroll functionality */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* Internet Explorer 10+ */
+        }
+        
+        .side-panel::-webkit-scrollbar {
+            display: none; /* WebKit browsers */
+        }
+        
+        .side-panel.show {
+            left: 0;
+        }
+        
+        .side-panel-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #b0b0b0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .side-panel-close:hover {
+            color: #e0e0e0;
+            background: #404040;
+            border-radius: 50%;
+        }
+        
+        /* Panel backdrop */
+        .panel-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1400;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .panel-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Remove container shifting - panel overlays instead of pushing content */
+        
+        /* Item Selection Modal Styles */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .item-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: #2d2d2d;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 2001;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: hidden;
+            border: 1px solid #404040;
+        }
+        
+        .item-modal.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .modal-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #404040;
+            text-align: center;
+            background: #3a3a3a;
+        }
+        
+        .modal-header h2 {
+            margin: 0 0 8px 0;
+            color: #e0e0e0;
+            font-size: 24px;
+        }
+        
+        .modal-subtitle {
+            margin: 0;
+            color: #b0b0b0;
+            font-size: 14px;
+        }
+        
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .item-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            justify-items: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .item-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 12px;
+            border: 2px solid #555;
+            border-radius: 8px;
+            background: #3a3a3a;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            width: 100%;
+            height: 120px;
+            min-width: 120px;
+            max-width: 140px;
+            box-sizing: border-box;
+        }
+        
+        .item-option:hover {
+            border-color: #007bff;
+            background: #4a4a4a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+        
+        .item-option:active {
+            transform: translateY(0);
+        }
+        
+        .item-icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 32px;
+        }
+        
+        .item-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e0e0e0;
+            line-height: 1.3;
+            text-align: center;
+            word-wrap: break-word;
+            hyphens: auto;
+        }
+        
+        /* Wall items styling */
+        .item-option[data-item^="wall"] {
+            border-color: #a0a0a0;
+        }
+        
+        .item-option[data-item^="wall"]:hover {
+            border-color: #a0a0a0;
+            background: #4a4a4a;
+        }
+        
+        /* Region items styling */
+        .item-option[data-item="cash"] {
+            border-color: #2ed573;
+        }
+        
+        .item-option[data-item="cash"]:hover {
+            border-color: #2ed573;
+            background: #2a4a3a;
+        }
+        
+        .item-option[data-item="multiplier"] {
+            border-color: #9c88ff;
+        }
+        
+        .item-option[data-item="multiplier"]:hover {
+            border-color: #9c88ff;
+            background: #3a2a4a;
+        }
+        
+        .item-option[data-item="levelUp"] {
+            border-color: #ff6b35;
+        }
+        
+        .item-option[data-item="levelUp"]:hover {
+            border-color: #ff6b35;
+            background: #4a2a1a;
+        }
+        
+        /* Level up abilities styling */
+        .item-option[data-item="ballLevel"],
+        .item-option[data-item="ballCount"] {
+            border-color: #ff6b6b;
+        }
+        
+        .item-option[data-item="ballLevel"]:hover,
+        .item-option[data-item="ballCount"]:hover {
+            border-color: #ff6b6b;
+            background: #4a2a2a;
+        }
+        
+        /* Make ballCount button span full width */
+        .item-option[data-item="ballCount"] {
+            grid-column: 1 / -1;
+            max-width: none;
+            width: 100%;
+        }
+        
+        /* Responsive design for smaller screens */
+        @media (max-width: 768px) {
+            .item-options {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 12px;
+                max-width: 100%;
+            }
+            
+            .item-option {
+                height: 100px;
+                min-width: 100px;
+                max-width: 120px;
+                padding: 12px 8px;
+            }
+            
+            .item-icon {
+                font-size: 24px;
+                height: 28px;
+            }
+            
+            .item-name {
+                font-size: 11px;
+            }
+            
+            .modal-body {
+                padding: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .item-options {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .item-option {
+                height: 90px;
+                min-width: 90px;
+                max-width: 100px;
+                padding: 10px 6px;
+            }
+            
+            .item-icon {
+                font-size: 20px;
+                height: 24px;
+            }
+            
+            .item-name {
+                font-size: 10px;
+            }
+        }
+        
     </style>
 </head>
 <body>
+    <!-- Settings Button -->
+    <button class="settings-button" id="settingsButton" title="Settings">⚙️</button>
+    
+    <!-- Panel Backdrop -->
+    <div class="panel-backdrop" id="panelBackdrop"></div>
+    
+    <!-- Item Selection Modal -->
+    <div class="modal-backdrop" id="itemModalBackdrop"></div>
+    <div class="item-modal" id="itemModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Choose Item</h2>
+            </div>
+            <div class="modal-body">
+                <div class="item-options">
+                    <button class="item-option" data-item="wallSquare">
+                        <div class="item-icon">⬜</div>
+                        <div class="item-name">Square Wall</div>
+                    </button>
+                    <button class="item-option" data-item="wallCircle">
+                        <div class="item-icon">⭕</div>
+                        <div class="item-name">Circle Wall</div>
+                    </button>
+                    <button class="item-option" data-item="wallTriangle">
+                        <div class="item-icon">🔺</div>
+                        <div class="item-name">Triangle Wall</div>
+                    </button>
+                    <button class="item-option" data-item="wallRect">
+                        <div class="item-icon">▬</div>
+                        <div class="item-name">Rect Wall</div>
+                    </button>
+                    <button class="item-option" data-item="cash">
+                        <div class="item-icon">💰</div>
+                        <div class="item-name">Cash Region</div>
+                    </button>
+                    <button class="item-option" data-item="multiplier">
+                        <div class="item-icon">⚡</div>
+                        <div class="item-name">Multiplier (x2)</div>
+                    </button>
+                    <button class="item-option" data-item="levelUp">
+                        <div class="item-icon">⬆️</div>
+                        <div class="item-name">Level Up Region</div>
+                    </button>
+                    <button class="item-option" data-item="ballLevel">
+                        <div class="item-icon">⬆️</div>
+                        <div class="item-name">Ball Level +1</div>
+                    </button>
+                    <button class="item-option" data-item="ballCount">
+                        <div class="item-icon">⚪</div>
+                        <div class="item-name">Ball Count +1</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Side Panel -->
+    <div class="side-panel" id="sidePanel">
+        <button class="side-panel-close" id="panelClose">&times;</button>
+        <div id="panelControlPanel">
+                <h2>Physics Controls</h2>
+                
+                <div class="control-group">
+                    <h3>World Physics</h3>
+                    <div class="control-row">
+                        <label>Gravity:</label>
+                        <input type="range" id="gravitySlider" min="0" max="2" step="0.1" value="0.5">
+                        <span class="value-display" id="gravityValue">0</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Circle Properties</h3>
+                    <div class="control-row">
+                        <label>Size:</label>
+                        <input type="range" id="sizeSlider" min="5" max="50" step="1" value="5">
+                        <span class="value-display" id="sizeValue">0</span>
+                    </div>
+                    <div class="control-row">
+                        <label>Bounciness:</label>
+                        <input type="range" id="bounceSlider" min="0" max="1" step="0.1" value="0.6">
+                        <span class="value-display" id="bounceValue">0</span>
+                    </div>
+                    <div class="control-row">
+                        <label>Friction:</label>
+                        <input type="range" id="frictionSlider" min="0" max="1" step="0.1" value="0">
+                        <span class="value-display" id="frictionValue">0</span>
+                    </div>
+                    <div class="control-row">
+                        <label>Density:</label>
+                        <input type="range" id="densitySlider" min="0.001" max="0.01" step="0.001" value="0.001">
+                        <span class="value-display" id="densityValue">0</span>
+                    </div>
+                    <div class="control-row">
+                        <label>Spawn Delay (ms):</label>
+                        <input type="range" id="spawnDelaySlider" min="0" max="500" step="5" value="50">
+                        <span class="value-display" id="spawnDelayValue">0</span>
+                    </div>
+                    <div class="control-row">
+                        <label>Ball Level:</label>
+                        <input type="number" id="ballLevelInput" min="1" max="999" value="1" style="flex: 1; margin: 0 10px; padding: 4px; border: 1px solid #555; border-radius: 4px; text-align: center; background: #3a3a3a; color: #e0e0e0;">
+                        <span class="value-display" id="ballLevelValue">1</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Tools</h3>
+                    <div class="control-row">
+                        <button id="wallToolButton" style="width: 100%; padding: 10px; background: #ffa502; color: white; border: none; border-radius: 4px; cursor: pointer;">Wall Drawing Tool</button>
+                    </div>
+                    <div id="wallControls" style="display: none;">
+                        <!-- Wall controls removed - walls can now be any length -->
+                    </div>
+                    <div class="control-row">
+                        <button id="multiplierToolButton" style="width: 100%; padding: 10px; background: #9c88ff; color: white; border: none; border-radius: 4px; cursor: pointer;">Multiplier Region Tool</button>
+                    </div>
+                    <div class="control-row" id="multiplierFactorDisplay" style="display: none;">
+                        <label>Multiplier Factor:</label>
+                        <input type="range" id="multiplierSlider" min="2" max="10" step="1" value="2">
+                        <span class="value-display" id="multiplierValue">0</span>
+                    </div>
+                    <div class="control-row">
+                        <button id="removerToolButton" style="width: 100%; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 4px; cursor: pointer;">Remover Tool</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="portalToolButton" style="width: 100%; padding: 10px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">Portal Tool</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="cashToolButton" style="width: 100%; padding: 10px; background: #2ed573; color: white; border: none; border-radius: 4px; cursor: pointer;">Cash Region Tool</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="levelUpToolButton" style="width: 100%; padding: 10px; background: #ff6b35; color: white; border: none; border-radius: 4px; cursor: pointer;">Level Up Region Tool</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Actions</h3>
+                    <div class="control-row">
+                        <button id="clearButton" style="width: 100%; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear All Objects</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="pauseButton" style="width: 100%; padding: 10px; background: #3742fa; color: white; border: none; border-radius: 4px; cursor: pointer;">Pause/Resume</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Info</h3>
+                    <div class="control-row">
+                        <label>Objects:</label>
+                        <span class="value-display" id="objectCount">0</span>
+                    </div>
+                    <div class="control-row">
+                        <label>FPS:</label>
+                        <span class="value-display" id="fpsCounter">60</span>
+                    </div>
+                </div>
+        </div>
+    </div>
+    
     <div class="container">
-        <div class="control-panel">
-            <h2>Physics Controls</h2>
-            
-            <div class="control-group">
-                <h3>World Physics</h3>
-                <div class="control-row">
-                    <label>Gravity:</label>
-                    <input type="range" id="gravitySlider" min="0" max="2" step="0.1" value="0.5">
-                    <span class="value-display" id="gravityValue">0.5</span>
-                </div>
-                <div class="control-row">
-                    <label>Air Resistance:</label>
-                    <input type="range" id="airResistanceSlider" min="0" max="0.1" step="0.001" value="0">
-                    <span class="value-display" id="airResistanceValue">0.000</span>
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Circle Properties</h3>
-                <div class="control-row">
-                    <label>Size:</label>
-                    <input type="range" id="sizeSlider" min="5" max="50" step="1" value="5">
-                    <span class="value-display" id="sizeValue">5</span>
-                </div>
-                <div class="control-row">
-                    <label>Bounciness:</label>
-                    <input type="range" id="bounceSlider" min="0" max="1" step="0.1" value="0">
-                    <span class="value-display" id="bounceValue">0.0</span>
-                </div>
-                <div class="control-row">
-                    <label>Friction:</label>
-                    <input type="range" id="frictionSlider" min="0" max="1" step="0.1" value="0">
-                    <span class="value-display" id="frictionValue">0.0</span>
-                </div>
-                <div class="control-row">
-                    <label>Density:</label>
-                    <input type="range" id="densitySlider" min="0.001" max="0.01" step="0.001" value="0.001">
-                    <span class="value-display" id="densityValue">0.001</span>
-                </div>
-                <div class="control-row">
-                    <label>Spawn Delay (ms):</label>
-                    <input type="range" id="spawnDelaySlider" min="0" max="500" step="5" value="5">
-                    <span class="value-display" id="spawnDelayValue">5</span>
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Tools</h3>
-                <div class="control-row">
-                    <button id="wallToolButton" style="width: 100%; padding: 10px; background: #ffa502; color: white; border: none; border-radius: 4px; cursor: pointer;">Wall Drawing Tool</button>
-                </div>
-                <div id="wallControls" style="display: none;">
-                    <!-- Wall controls removed - walls can now be any length -->
-                </div>
-                <div class="control-row">
-                    <button id="multiplierToolButton" style="width: 100%; padding: 10px; background: #9c88ff; color: white; border: none; border-radius: 4px; cursor: pointer;">Multiplier Region Tool</button>
-                </div>
-                <div class="control-row" id="multiplierFactorDisplay" style="display: none;">
-                    <label>Multiplier Factor:</label>
-                    <input type="range" id="multiplierSlider" min="2" max="10" step="1" value="2">
-                    <span class="value-display" id="multiplierValue">2</span>
-                </div>
-                <div class="control-row">
-                    <button id="removerToolButton" style="width: 100%; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 4px; cursor: pointer;">Remover Tool</button>
-                </div>
-                <div class="control-row">
-                    <button id="portalToolButton" style="width: 100%; padding: 10px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">Portal Tool</button>
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Actions</h3>
-                <div class="control-row">
-                    <button id="clearButton" style="width: 100%; padding: 10px; background: #ff4757; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear All Objects</button>
-                </div>
-                <div class="control-row">
-                    <button id="pauseButton" style="width: 100%; padding: 10px; background: #3742fa; color: white; border: none; border-radius: 4px; cursor: pointer;">Pause/Resume</button>
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Info</h3>
-                <div class="control-row">
-                    <label>Objects:</label>
-                    <span class="value-display" id="objectCount">0</span>
-                </div>
-                <div class="control-row">
-                    <label>FPS:</label>
-                    <span class="value-display" id="fpsCounter">60</span>
-                </div>
-            </div>
-        </div>
-        
         <div class="simulation-area">
-            <canvas id="canvas" width="500" height="800"></canvas>
+            <canvas id="canvas" width="800" height="800"></canvas>
         </div>
         
-        <div class="game-info-pane">
-            <h2>Game Info</h2>
-            
-            <div class="control-group">
-                <h3>Wallet & Balls</h3>
-                <div class="control-row">
-                    <label>Wallet:</label>
-                    <span class="value-display" id="walletValue">$0</span>
+        <div class="right-panel">
+            <div class="game-info-pane">
+                <div class="control-group">
+                    <div class="control-row">
+                        <button id="drop10Button" style="width: 100%; padding: 15px; background: #ff6b35; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;">Drop 10</button>
+                    </div>
+                    <div class="control-row" style="justify-content: center; margin-top: 10px;">
+                        <span class="value-display" id="turnValue" style="font-size: 16px; font-weight: bold;">Turn: 0</span>
+                    </div>
+                    <div class="control-row" style="justify-content: center; margin-top: 5px;">
+                        <span class="value-display" id="currentBallLevelValue" style="font-size: 14px; font-weight: bold;">Level: 1</span>
+                    </div>
                 </div>
-                <div class="control-row">
-                    <label>Add Balls:</label>
-                    <button id="addBallsButton" style="margin-left: 10px; padding: 4px 8px; background: #2ed573; color: white; border: none; border-radius: 4px; cursor: pointer;">+10</button>
+                
+                <div class="control-group" style="padding: 10px;">
+                    <h3 style="margin: 0 0 8px 0;">Wallet</h3>
+                    <div class="control-row" style="justify-content: space-between; margin-bottom: 0;">
+                        <span class="value-display" id="moneyValue" style="font-size: 20px; font-weight: bold;">💵 $0</span>
+                        <span class="value-display" id="diamondsValue" style="font-size: 20px; font-weight: bold;">💎 0</span>
+                        <span class="value-display" id="keysValue" style="font-size: 20px; font-weight: bold;">🗝️ 0</span>
+                    </div>
+                </div>
+                
+                
+                <div class="control-group" style="padding: 10px;">
+                    <h3 style="margin: 0 0 8px 0;">Test Balls</h3>
+                    <div class="control-row" style="justify-content: center; margin-bottom: 0;">
+                        <span class="value-display" id="testBallCount" style="font-size: 20px; font-weight: bold; color: #ff6b6b;">🔴 0</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-row">
+                        <button id="dropButton" style="width: 100%; padding: 15px; background: #ff4757; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; display: none;">Drop</button>
+                    </div>
                 </div>
             </div>
             
-            <div class="control-group">
-                <div class="control-row">
-                    <button id="dropButton" style="width: 100%; padding: 15px; background: #ff4757; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; display: none;">Drop</button>
-                </div>
-            </div>
+            
         </div>
     </div>
 
