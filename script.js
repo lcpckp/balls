@@ -3831,7 +3831,10 @@ function generateRandomWalls() {
                 }
             }
             
-            if (conflictsWithWalls) {
+            // Check if position conflicts with portals
+            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            
+            if (conflictsWithWalls || conflictsWithPortalRegions) {
                 continue; // Try again
             }
             
@@ -3877,6 +3880,29 @@ function generateRandomMultipliers() {
     const topSpawnArea = 150; // Reserve top 150px for ball spawning
     const minDistance = 100; // Minimum distance between multipliers and walls/regions
     
+    // Calculate the spawnable area (excluding top spawn area and bottom margin)
+    const spawnableHeight = canvasHeight - topSpawnArea - margin;
+    const regionHeight = spawnableHeight / 3; // Divide into 3 equal vertical regions
+    
+    // Define the three vertical regions
+    const regions = [
+        { // Top region
+            name: 'top',
+            y1: topSpawnArea,
+            y2: topSpawnArea + regionHeight
+        },
+        { // Middle region
+            name: 'middle', 
+            y1: topSpawnArea + regionHeight,
+            y2: topSpawnArea + 2 * regionHeight
+        },
+        { // Bottom region
+            name: 'bottom',
+            y1: topSpawnArea + 2 * regionHeight,
+            y2: canvasHeight - margin
+        }
+    ];
+    
     // Get money region bounds (permanent bottom cash region)
     const moneyRegionBounds = {
         x1: canvasWidth * 0.25, // 25% from left edge
@@ -3899,16 +3925,18 @@ function generateRandomMultipliers() {
         }
     }
     
-    for (let i = 0; i < numMultipliers; i++) {
+    // Place exactly one multiplier in each region
+    for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
+        const region = regions[regionIndex];
         let attempts = 0;
         let placed = false;
         
         while (!placed && attempts < 50) { // Max 50 attempts per multiplier
             attempts++;
             
-            // Random position within canvas bounds (excluding margins and top spawn area)
+            // Random position within the specific region bounds
             const x = margin + Math.random() * (canvasWidth - 2 * margin);
-            const y = topSpawnArea + Math.random() * (canvasHeight - topSpawnArea - margin);
+            const y = region.y1 + Math.random() * (region.y2 - region.y1);
             
             // Check if position conflicts with money region
             const conflictsWithMoneyRegion = 
@@ -3945,7 +3973,10 @@ function generateRandomMultipliers() {
                 }
             }
             
-            if (conflictsWithWalls || conflictsWithMultipliers) {
+            // Check if position conflicts with portals
+            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            
+            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithPortalRegions) {
                 continue; // Try again
             }
             
@@ -3964,23 +3995,80 @@ function generateRandomMultipliers() {
         }
         
         if (!placed) {
-            console.log(`Failed to place multiplier ${i + 1} after 50 attempts`);
+            console.log(`Failed to place multiplier in ${region.name} region after 50 attempts`);
         }
     }
     
-    console.log(`Generated ${multiplierRegions.length} random multipliers`);
+    console.log(`Generated ${multiplierRegions.length} random multipliers (1 in each of the 3 vertical regions)`);
 }
 
 // Initialize drop 10 button state
 updateDropButtonState();
 
+// Helper function to check if a position conflicts with any portal regions
+function conflictsWithPortals(x, y, minDistance = 100) {
+    for (const portal of portalRegions) {
+        const portalCenterX = (portal.x1 + portal.x2) / 2;
+        const portalCenterY = (portal.y1 + portal.y2) / 2;
+        const distance = Math.sqrt(
+            Math.pow(x - portalCenterX, 2) + Math.pow(y - portalCenterY, 2)
+        );
+        if (distance < minDistance) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Function to generate random portals at game start
+function generateRandomPortals() {
+    const canvasWidth = CANVAS_CONFIG.width;
+    const canvasHeight = CANVAS_CONFIG.height;
+    const margin = 50; // Margin from edges
+    
+    // Randomly choose between bottom-left (0) or bottom-right (1) corner for blue portal
+    const bluePortalCorner = Math.random() < 0.5 ? 0 : 1;
+    
+    let blueCenterX, blueCenterY;
+    let orangeCenterX, orangeCenterY;
+    
+    if (bluePortalCorner === 0) {
+        // Blue portal in bottom-left corner
+        blueCenterX = margin + REGION_CONFIG.portal.width / 2;
+        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2;
+        
+        // Orange portal in top-right corner
+        orangeCenterX = canvasWidth - margin - REGION_CONFIG.portal.width / 2;
+        orangeCenterY = margin + REGION_CONFIG.portal.height / 2;
+    } else {
+        // Blue portal in bottom-right corner
+        blueCenterX = canvasWidth - margin - REGION_CONFIG.portal.width / 2;
+        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2;
+        
+        // Orange portal in top-left corner
+        orangeCenterX = margin + REGION_CONFIG.portal.width / 2;
+        orangeCenterY = margin + REGION_CONFIG.portal.height / 2;
+    }
+    
+    // Create the blue (IN) portal
+    createPortalRegion(blueCenterX, blueCenterY, 'blue');
+    
+    // Create the orange (OUT) portal
+    createPortalRegion(orangeCenterX, orangeCenterY, 'orange');
+    
+    console.log(`Generated portals: Blue at (${blueCenterX}, ${blueCenterY}), Orange at (${orangeCenterX}, ${orangeCenterY})`);
+}
+
 // Create the permanent bottom cash region
 createPermanentBottomCashRegion();
 
-// Generate random walls at game start
+// Generate random portals at game start (FIRST)
+generateRandomPortals();
+
+// Generate random walls at game start (SECOND - avoids portals)
 generateRandomWalls();
 
-// Generate random multipliers at game start
+// Generate random multipliers at game start (THIRD - avoids portals and walls)
 generateRandomMultipliers();
 
 // Start the simulation
