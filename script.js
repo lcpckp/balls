@@ -12,7 +12,7 @@ const Events = Matter.Events;
 
 // Region placement configuration
 const REGION_PLACEMENT = {
-    minDistance: 100 // Minimum distance between region centers
+    minDistance: 75 // Minimum distance between region centers
 };
 
 // Color palette - all colors used throughout the application
@@ -295,7 +295,7 @@ let physicsSettings = {
     bounciness: 0.6, // Natural bouncing with moderate energy retention
     friction: 0,
     density: 0.001,
-    spawnDelay: 50,
+    spawnDelay: 250,
     multiplierRegionWidth: 60, // Fixed width for multiplier regions
     multiplierRegionHeight: 20, // Fixed height for multiplier regions
     ballLevel: 1 // Default ball level
@@ -339,9 +339,11 @@ let isDropButtonEnabled = true;
 let currentBallLevel = 1; // Current level of balls dropped by drop button
 let currentBallCount = 10; // Current number of balls dropped by drop button
 
+// Ball spawn position for current turn
+let currentSpawnX = null; // X position where balls will spawn this turn
+
 // Test ball system
 let testBallCount = 0;
-let isTestBallClickEnabled = true;
 let hadTestBallsInPreviousState = false;
 
 // Stuck ball detection state
@@ -387,19 +389,79 @@ let cashRegions = []; // Array to store cash regions
 let levelUpMode = false;
 let levelUpRegions = []; // Array to store level up regions
 
+// Money animation system
+class MoneyAnimation {
+    constructor(x, y, amount) {
+        this.x = x;
+        this.y = y;
+        this.amount = amount;
+        this.life = 1.0; // Start at full life
+        this.velocity = -2; // Move upward
+        this.alpha = 1.0;
+        this.scale = 1.0;
+    }
+    
+    update() {
+        // Move upward
+        this.y += this.velocity;
+        
+        // Fade out over time
+        this.life -= 0.02;
+        this.alpha = Math.max(0, this.life);
+        
+        // Slight scale animation
+        this.scale = 0.8 + (1.0 - this.life) * 0.4;
+        
+        // Return true if still alive
+        return this.life > 0;
+    }
+    
+    draw(ctx) {
+        if (this.alpha <= 0) return;
+        
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.translate(this.x, this.y);
+        ctx.scale(this.scale, this.scale);
+        
+        // Draw the money text with a nice style
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = '#2ed573'; // Green color to match cash regions
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 2;
+        
+        const text = '+$';
+        const textMetrics = ctx.measureText(text);
+        const textWidth = textMetrics.width;
+        
+        // Draw text with outline
+        ctx.strokeText(text, -textWidth/2, 0);
+        ctx.fillText(text, -textWidth/2, 0);
+        
+        // Add a subtle glow effect
+        ctx.shadowColor = '#2ed573';
+        ctx.shadowBlur = 8;
+        ctx.fillText(text, -textWidth/2, 0);
+        
+        ctx.restore();
+    }
+}
+
+let moneyAnimations = []; // Array to store active money animations
+
 // Item system state
 let items = {
     wallSquare: { available: true, used: false },
     wallCircle: { available: true, used: false },
     wallTriangle: { available: true, used: false },
-    wallRect: { available: true, used: false },
+    wallHexagon: { available: true, used: false },
     cash: { available: true, used: false },
     multiplier: { available: true, used: false },
     levelUp: { available: true, used: false },
     ballLevel: { available: true, used: false },
     ballCount: { available: true, used: false }
 };
-let currentItemMode = null; // 'wallSquare', 'wallCircle', 'wallTriangle', 'wallRect', 'cash', 'multiplier', 'levelUp', or null
+let currentItemMode = null; // 'wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon', 'cash', 'multiplier', 'levelUp', or null
 
 // Modal system state
 let isModalOpen = false;
@@ -410,6 +472,12 @@ let wallItemPreviewX = 0;
 let wallItemPreviewY = 0;
 let wallItemRotation = Math.PI / 4; // Default to 45 degrees
 let regionItemRotation = 0; // Default to 0 degrees for region items
+
+// Wall dragging state
+let isDraggingWall = false;
+let draggedWall = null;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
 
 
 // Permanent bottom cash region
@@ -511,6 +579,7 @@ const cashToolButton = document.getElementById('cashToolButton');
 const levelUpToolButton = document.getElementById('levelUpToolButton');
 const dropButton = document.getElementById('dropButton');
 const drop10Button = document.getElementById('drop10Button');
+const dropTestButton = document.getElementById('dropTestButton');
 const turnValue = document.getElementById('turnValue');
 const testBallCountElement = document.getElementById('testBallCount');
 const ballLevelInput = document.getElementById('ballLevelInput');
@@ -602,27 +671,31 @@ function createCircle(x, y, isTestBall = false, level = 1) {
     
     // Update drop button state when a ball is created
     updateDropButtonState();
+    updateDropTestButtonState();
     
     return circle;
 }
 
-// Function to drop a specified number of balls from random positions at the top of the canvas
+// Function to drop a specified number of balls from the pre-calculated spawn position
 function dropBalls(count) {
-    const canvasWidth = CANVAS_CONFIG.width;
     const ballRadius = physicsSettings.circleSize;
     const topMargin = BALL_SPAWN_CONFIG.topMargin;
-    const sideMargin = BALL_SPAWN_CONFIG.margin;
-    
-    // Calculate the spawn area (between the side walls)
-    const spawnStartX = sideMargin + ballRadius;
-    const spawnEndX = canvasWidth - sideMargin - ballRadius;
     const spawnY = topMargin + ballRadius;
     
-    // Drop balls with random horizontal positions and spawn delay
+    // Use the pre-calculated spawn position for this turn
+    if (currentSpawnX === null) {
+        console.warn('Spawn position not calculated, falling back to random position');
+        const canvasWidth = CANVAS_CONFIG.width;
+        const sideMargin = BALL_SPAWN_CONFIG.margin;
+        const spawnStartX = sideMargin + ballRadius;
+        const spawnEndX = canvasWidth - sideMargin - ballRadius;
+        currentSpawnX = spawnStartX + Math.random() * (spawnEndX - spawnStartX);
+    }
+    
+    // Drop balls from the pre-calculated position with spawn delay
     for (let i = 0; i < count; i++) {
         setTimeout(() => {
-            const randomX = spawnStartX + Math.random() * (spawnEndX - spawnStartX);
-            createCircle(randomX, spawnY, false, currentBallLevel);
+            createCircle(currentSpawnX, spawnY, false, currentBallLevel);
         }, i * physicsSettings.spawnDelay);
     }
 }
@@ -632,20 +705,37 @@ function drop10Balls() {
     dropBalls(currentBallCount);
 }
 
-// Function to create a test ball at position
-function createTestBall(x, y) {
-    // Reset test ball counter to 1 for the dropped ball
-    testBallCount = 1;
+// Function to drop test balls using current ball count
+function dropTestBalls() {
+    const ballRadius = physicsSettings.circleSize;
+    const topMargin = BALL_SPAWN_CONFIG.topMargin;
+    const spawnY = topMargin + ballRadius;
+    
+    // Use the pre-calculated spawn position for this turn
+    if (currentSpawnX === null) {
+        console.warn('Spawn position not calculated, falling back to random position');
+        const canvasWidth = CANVAS_CONFIG.width;
+        const sideMargin = BALL_SPAWN_CONFIG.margin;
+        const spawnStartX = sideMargin + ballRadius;
+        const spawnEndX = canvasWidth - sideMargin - ballRadius;
+        currentSpawnX = spawnStartX + Math.random() * (spawnEndX - spawnStartX);
+    }
+    
+    // Reset test ball counter
+    testBallCount = currentBallCount;
     updateTestBallDisplay();
     
-    // Create the test ball (test balls are always level 1)
-    const testBall = createCircle(x, y, true, 1);
+    // Drop test balls from the pre-calculated position with spawn delay
+    for (let i = 0; i < currentBallCount; i++) {
+        setTimeout(() => {
+            createCircle(currentSpawnX, spawnY, true, 1); // Test balls are always level 1
+        }, i * physicsSettings.spawnDelay);
+    }
     
-    // Update click state to disable further clicks
-    updateTestBallClickState();
-    
-    return testBall;
+    // Update drop test button state
+    updateDropTestButtonState();
 }
+
 
 // Function to create a wall from start to end coordinates
 function createWall(startX, startY, endX, endY) {
@@ -850,6 +940,41 @@ function createTriangleWall(centerX, centerY, size, rotation) {
     return wall;
 }
 
+// Function to create a hexagon wall
+function createHexagonWall(centerX, centerY, size, rotation) {
+    const radius = size / 2;
+    const vertices = [];
+    
+    // Create hexagon vertices (6 sides)
+    for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI / 3) + rotation;
+        vertices.push({
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius
+        });
+    }
+    
+    const wall = Bodies.fromVertices(
+        centerX, 
+        centerY, 
+        [vertices], 
+        {
+            isStatic: true,
+            render: { fillStyle: WALL_CONFIG.color }
+        }
+    );
+    
+    // Mark as a wall object to prevent ball detection
+    wall.isWall = true;
+    
+    World.add(world, wall);
+    objectCount++;
+    objectCountElement.textContent = objectCount;
+    
+    return wall;
+}
+
+
 // Function to create a rectangular wall (200x20)
 function createWallRect(centerX, centerY, rotation) {
     const wall = Bodies.rectangle(
@@ -882,22 +1007,39 @@ function drawPlacementRestrictionCircles(regionType) {
     const allRegions = [
         ...multiplierRegions.map(r => ({...r, type: 'multiplier'})),
         ...cashRegions.map(r => ({...r, type: 'cash'})),
-        ...levelUpRegions.map(r => ({...r, type: 'levelUp'}))
+        ...levelUpRegions.map(r => ({...r, type: 'levelUp'})),
+        ...portalRegions.map(r => ({...r, type: 'portal'}))
     ];
     
+    // Add permanent bottom cash region if it exists
+    if (permanentBottomCashRegion) {
+        allRegions.push({
+            ...permanentBottomCashRegion,
+            type: 'permanent_cash'
+        });
+    }
+    
     allRegions.forEach(region => {
-        const centerX = (region.x1 + region.x2) / 2;
-        const centerY = (region.y1 + region.y2) / 2;
-        
         // Use different colors based on region type
         if (region.type === regionType) {
             // Green for same type (level up opportunity)
             ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; // Semi-transparent green
+        } else if (regionType === 'cash' && region.type === 'portal') {
+            // Red for portal regions when placing cash regions (hard conflict)
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
+        } else if (regionType === 'cash' && region.type === 'permanent_cash') {
+            // Special handling for permanent cash region - draw the actual region bounds
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
+            ctx.fillRect(region.x1, region.y1, region.x2 - region.x1, region.y2 - region.y1);
+            return; // Skip the circle drawing for permanent cash region
         } else {
             // Red for different type (conflict)
             ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
         }
         
+        // Draw circle for regular regions
+        const centerX = (region.x1 + region.x2) / 2;
+        const centerY = (region.y1 + region.y2) / 2;
         ctx.beginPath();
         ctx.arc(centerX, centerY, minDistance, 0, 2 * Math.PI);
         ctx.fill();
@@ -917,37 +1059,150 @@ function checkRegionPlacement(centerX, centerY, regionType) {
     const allRegions = [
         ...multiplierRegions.map(r => ({...r, type: 'multiplier', original: r})),
         ...cashRegions.map(r => ({...r, type: 'cash', original: r})),
-        ...levelUpRegions.map(r => ({...r, type: 'levelUp', original: r}))
+        ...levelUpRegions.map(r => ({...r, type: 'levelUp', original: r})),
+        ...portalRegions.map(r => ({...r, type: 'portal', original: r}))
     ];
+    
+    // Add permanent bottom cash region if it exists
+    if (permanentBottomCashRegion) {
+        allRegions.push({
+            ...permanentBottomCashRegion,
+            type: 'permanent_cash',
+            original: permanentBottomCashRegion
+        });
+    }
     
     // First pass: check for same-type regions (upgrade opportunities)
     for (const region of allRegions) {
-        const regionCenterX = (region.x1 + region.x2) / 2;
-        const regionCenterY = (region.y1 + region.y2) / 2;
-        const distance = Math.sqrt((centerX - regionCenterX) ** 2 + (centerY - regionCenterY) ** 2);
-        
-        if (distance < minDistance && region.type === regionType) {
-            // Found a same-type region nearby - this is an upgrade opportunity
-            result.levelUpTarget = region.original; // Return reference to original region
-            result.canPlace = true; // Can place for level up
-            return result; // Return immediately - upgrade overrides all other conflicts
+        if (region.type === regionType) {
+            // Check if the new region would overlap with the buffer area around the existing same-type region
+            if (checkRegionOverlapWithBuffer(centerX, centerY, regionType, region, minDistance)) {
+                // Found a same-type region nearby - this is an upgrade opportunity
+                result.levelUpTarget = region.original; // Return reference to original region
+                result.canPlace = true; // Can place for level up
+                return result; // Return immediately - upgrade overrides all other conflicts
+            }
         }
     }
     
     // Second pass: check for conflicts with different-type regions
     for (const region of allRegions) {
-        const regionCenterX = (region.x1 + region.x2) / 2;
-        const regionCenterY = (region.y1 + region.y2) / 2;
-        const distance = Math.sqrt((centerX - regionCenterX) ** 2 + (centerY - regionCenterY) ** 2);
+        // Special handling for permanent cash region - always check for overlap regardless of distance
+        if (regionType === 'cash' && region.type === 'permanent_cash') {
+            if (checkRectangularOverlap(centerX, centerY, regionType, region)) {
+                result.canPlace = false;
+                result.hasConflict = true;
+                return result; // Return immediately - this is a hard conflict
+            }
+            continue; // Skip the distance-based check for permanent cash region
+        }
         
-        if (distance < minDistance) {
-            // Found a different-type region nearby - this is a conflict
-            result.canPlace = false;
-            result.hasConflict = true;
+        // Check for geometric overlap with the restricted area (minDistance buffer around existing regions)
+        if (checkRegionOverlapWithBuffer(centerX, centerY, regionType, region, minDistance)) {
+            // Check if this is a special case where cash regions cannot overlap
+            if (regionType === 'cash' && region.type === 'portal') {
+                // Cash regions cannot overlap with portal regions
+                result.canPlace = false;
+                result.hasConflict = true;
+                return result; // Return immediately - this is a hard conflict
+            } else if (region.type !== regionType) {
+                // Found a different-type region nearby - this is a conflict
+                result.canPlace = false;
+                result.hasConflict = true;
+            }
         }
     }
     
     return result;
+}
+
+// Function to check for rectangular overlap between a new region and an existing region
+function checkRectangularOverlap(centerX, centerY, regionType, existingRegion) {
+    // Get dimensions for the new region based on type
+    let newWidth, newHeight;
+    if (regionType === 'cash') {
+        newWidth = REGION_CONFIG.cash.width;
+        newHeight = REGION_CONFIG.cash.height;
+    } else {
+        // Default dimensions for other region types
+        newWidth = 100;
+        newHeight = 50;
+    }
+    
+    // Calculate bounds for the new region
+    const newLeft = centerX - newWidth / 2;
+    const newRight = centerX + newWidth / 2;
+    const newTop = centerY - newHeight / 2;
+    const newBottom = centerY + newHeight / 2;
+    
+    // Get bounds for the existing region
+    const existingLeft = existingRegion.x1;
+    const existingRight = existingRegion.x2;
+    const existingTop = existingRegion.y1;
+    const existingBottom = existingRegion.y2;
+    
+    // Check for overlap using standard rectangle overlap algorithm
+    return !(newRight < existingLeft || 
+             newLeft > existingRight || 
+             newBottom < existingTop || 
+             newTop > existingBottom);
+}
+
+// Function to check if a new region would overlap with the circular buffer area around an existing region
+function checkRegionOverlapWithBuffer(centerX, centerY, regionType, existingRegion, bufferDistance) {
+    // Get dimensions for the new region based on type
+    let newWidth, newHeight;
+    if (regionType === 'cash') {
+        newWidth = REGION_CONFIG.cash.width;
+        newHeight = REGION_CONFIG.cash.height;
+    } else if (regionType === 'multiplier') {
+        newWidth = REGION_CONFIG.multiplier.width;
+        newHeight = REGION_CONFIG.multiplier.height;
+    } else if (regionType === 'levelUp') {
+        newWidth = REGION_CONFIG.levelUp.width;
+        newHeight = REGION_CONFIG.levelUp.height;
+    } else {
+        // Default dimensions for other region types
+        newWidth = 100;
+        newHeight = 50;
+    }
+    
+    // Get the center of the existing region
+    const existingCenterX = (existingRegion.x1 + existingRegion.x2) / 2;
+    const existingCenterY = (existingRegion.y1 + existingRegion.y2) / 2;
+    
+    // Calculate bounds for the new region
+    const newLeft = centerX - newWidth / 2;
+    const newRight = centerX + newWidth / 2;
+    const newTop = centerY - newHeight / 2;
+    const newBottom = centerY + newHeight / 2;
+    
+    // Check if any corner of the new region is within the circular buffer area
+    const corners = [
+        { x: newLeft, y: newTop },     // Top-left
+        { x: newRight, y: newTop },    // Top-right
+        { x: newLeft, y: newBottom },  // Bottom-left
+        { x: newRight, y: newBottom }  // Bottom-right
+    ];
+    
+    for (const corner of corners) {
+        const distance = Math.sqrt(
+            Math.pow(corner.x - existingCenterX, 2) + 
+            Math.pow(corner.y - existingCenterY, 2)
+        );
+        if (distance < bufferDistance) {
+            return true; // At least one corner is within the circular buffer
+        }
+    }
+    
+    // Also check if the existing region's center is within the new region
+    // (in case the new region is large enough to contain the existing region's center)
+    if (existingCenterX >= newLeft && existingCenterX <= newRight &&
+        existingCenterY >= newTop && existingCenterY <= newBottom) {
+        return true;
+    }
+    
+    return false;
 }
 
 // Function to check if a new multiplier region placement conflicts with existing regions
@@ -1178,6 +1433,15 @@ function createPermanentBottomCashRegion() {
 
 // Function to check if a point is inside a wall body
 function isPointInWall(x, y, wall) {
+    // Handle circle walls
+    if (wall.circleRadius) {
+        const dx = x - wall.position.x;
+        const dy = y - wall.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance <= wall.circleRadius;
+    }
+    
+    // Handle polygonal walls
     const vertices = wall.vertices;
     if (vertices.length < 3) return false;
     
@@ -1251,7 +1515,9 @@ function getHoveredObject(x, y) {
     for (let i = bodies.length - 1; i >= 0; i--) {
         const body = bodies[i];
         // Skip main tank walls and balls
-        if (body === leftWall || body === rightWall || body === tankWall || body === tankTopWall || body.circleRadius) {
+        // Allow circle walls (body.circleRadius && body.isWall) to be hovered
+        if (body === leftWall || body === rightWall || body === tankWall || body === tankTopWall || 
+            (body.circleRadius && !body.isWall)) {
             continue;
         }
         
@@ -1260,6 +1526,25 @@ function getHoveredObject(x, y) {
         }
     }
     
+    return null;
+}
+
+// Function to find a wall at the given coordinates
+function findWallAt(x, y) {
+    const bodies = Matter.Composite.allBodies(world);
+    for (let i = bodies.length - 1; i >= 0; i--) {
+        const body = bodies[i];
+        // Skip main tank walls, balls, and region bodies
+        // Allow circle walls (body.circleRadius && body.isWall) to be found
+        if (body === leftWall || body === rightWall || body === tankWall || body === tankTopWall || 
+            (body.circleRadius && !body.isWall) || body.isSensor) {
+            continue;
+        }
+        
+        if (isPointInWall(x, y, body)) {
+            return body;
+        }
+    }
     return null;
 }
 
@@ -1326,7 +1611,9 @@ function removeObjectAt(x, y) {
     for (let i = bodies.length - 1; i >= 0; i--) {
         const body = bodies[i];
         // Skip main tank walls, balls, and region bodies
-        if (body === leftWall || body === rightWall || body === tankWall || body === tankTopWall || body.circleRadius || body.isSensor) {
+        // Allow circle walls (body.circleRadius && body.isWall) to be removed
+        if (body === leftWall || body === rightWall || body === tankWall || body === tankTopWall || 
+            (body.circleRadius && !body.isWall) || body.isSensor) {
             continue;
         }
         
@@ -1370,7 +1657,6 @@ function clearAllObjects() {
     // Reset test ball state
     testBallCount = 0;
     updateTestBallDisplay();
-    updateTestBallClickState();
     
     // Reset test ball tracking state
     hadTestBallsInPreviousState = false;
@@ -1438,10 +1724,38 @@ function forceClearBalls() {
     // Reset test ball state
     testBallCount = 0;
     updateTestBallDisplay();
-    updateTestBallClickState();
     
     // Reset test ball tracking state
     hadTestBallsInPreviousState = false;
+}
+
+// Function to update drop test button state
+function updateDropTestButtonState() {
+    const hasTestBalls = hasTestBallsOnCanvas();
+    
+    // Check if modal is open or if we're in placement mode
+    if (isModalOpen || isPlacingItem) {
+        // Modal is open or placing item - disable drop test button
+        dropTestButton.disabled = true;
+        dropTestButton.style.background = '#cccccc';
+        dropTestButton.style.cursor = 'not-allowed';
+        dropTestButton.textContent = 'Drop Test';
+        return;
+    }
+    
+    if (hasTestBalls) {
+        // Test balls are active - disable button
+        dropTestButton.disabled = true;
+        dropTestButton.style.background = '#cccccc';
+        dropTestButton.style.cursor = 'not-allowed';
+        dropTestButton.textContent = 'Test Active...';
+    } else {
+        // No test balls - ready to drop test balls
+        dropTestButton.disabled = false;
+        dropTestButton.style.background = '#ff6b6b';
+        dropTestButton.style.cursor = 'pointer';
+        dropTestButton.textContent = 'Drop Test';
+    }
 }
 
 // Function to update drop button state based on whether balls are present
@@ -1541,9 +1855,8 @@ function checkForFallenBalls() {
     
     // Update drop button state based on whether balls are present
     updateDropButtonState();
+    updateDropTestButtonState();
     
-    // Update test ball click state
-    updateTestBallClickState();
 }
 
 // Function to calculate total vertical velocity of all balls
@@ -1688,6 +2001,24 @@ function handlePortalCollision(ball, region) {
     }
 }
 
+// Function to play a random pop sound
+function playRandomPopSound() {
+    try {
+        // Generate random number between 1 and 5
+        const soundNumber = Math.floor(Math.random() * 5) + 1;
+        const soundFile = `sounds/pop${soundNumber}.mp3`;
+        
+        // Create and play audio
+        const audio = new Audio(soundFile);
+        audio.volume = 0.3; // Set volume to 30% to avoid being too loud
+        audio.play().catch(error => {
+            console.log('Could not play sound:', error);
+        });
+    } catch (error) {
+        console.log('Error playing sound:', error);
+    }
+}
+
 // Function to handle cash region collision
 function handleCashCollision(ball, region) {
     // Skip cash regions for test balls
@@ -1709,6 +2040,13 @@ function handleCashCollision(ball, region) {
         const moneyToAdd = ballLevel * regionLevel;
         
         wallet.money += moneyToAdd;
+        
+        // Play random pop sound when money is earned
+        playRandomPopSound();
+        
+        // Create money animation at ball position
+        const ballPos = ball.position;
+        moneyAnimations.push(new MoneyAnimation(ballPos.x, ballPos.y, moneyToAdd));
         
         // Mark this ball as having triggered this cash region
         ball.cashTriggeredBy.add(region.id);
@@ -1758,6 +2096,61 @@ function updateTurnDisplay() {
     turnValue.textContent = 'Turn: ' + currentTurn;
 }
 
+// Function to calculate spawn position for the current turn
+function calculateSpawnPosition() {
+    const canvasWidth = CANVAS_CONFIG.width;
+    const ballRadius = physicsSettings.circleSize;
+    const sideMargin = BALL_SPAWN_CONFIG.margin;
+    
+    // Calculate the spawn area (between the side walls)
+    const spawnStartX = sideMargin + ballRadius;
+    const spawnEndX = canvasWidth - sideMargin - ballRadius;
+    
+    // Choose one random location for all balls in this turn
+    currentSpawnX = spawnStartX + Math.random() * (spawnEndX - spawnStartX);
+}
+
+// Function to draw the spawn indicator (down arrow/chevron)
+function drawSpawnIndicator() {
+    // Only show indicator when drop button is enabled (no balls active)
+    if (currentSpawnX === null || !isDropButtonEnabled) return;
+    
+    const spawnY = BALL_SPAWN_CONFIG.topMargin + physicsSettings.circleSize;
+    const arrowSize = 20;
+    const textHeight = 20;
+    const arrowY = spawnY;
+    
+    ctx.save();
+    
+    // Draw "DROP" text above the arrow
+    ctx.font = 'bold 10px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Draw text with black outline
+    ctx.strokeText('DROP', currentSpawnX, arrowY - 5);
+    ctx.fillText('DROP', currentSpawnX, arrowY - 5);
+    
+    // Draw arrow pointing down
+    ctx.beginPath();
+    ctx.moveTo(currentSpawnX, arrowY + arrowSize); // Start at bottom point
+    ctx.lineTo(currentSpawnX - arrowSize/2, arrowY); // Left wing
+    ctx.lineTo(currentSpawnX + arrowSize/2, arrowY); // Right wing
+    ctx.closePath();
+    
+    // Style the arrow
+    ctx.fillStyle = '#ffffff'; // White color
+    ctx.fill();
+    ctx.strokeStyle = '#000000'; // Black border
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    ctx.restore();
+}
+
 // Function to reset items for a new turn
 function resetItemsForNewTurn() {
     items.wallSquare.available = true;
@@ -1766,8 +2159,8 @@ function resetItemsForNewTurn() {
     items.wallCircle.used = false;
     items.wallTriangle.available = true;
     items.wallTriangle.used = false;
-    items.wallRect.available = true;
-    items.wallRect.used = false;
+    items.wallHexagon.available = true;
+    items.wallHexagon.used = false;
     items.cash.available = true;
     items.cash.used = false;
     items.multiplier.available = true;
@@ -1781,6 +2174,9 @@ function resetItemsForNewTurn() {
     
     // Reset current item mode
     currentItemMode = null;
+    
+    // Calculate new spawn position for this turn
+    calculateSpawnPosition();
     
     // Update button states
     updateItemButtonStates();
@@ -1839,7 +2235,7 @@ function selectItemFromModal(itemType) {
     
     // Categorize items into immediate effects vs placement items
     const immediateEffectItems = ['ballLevel', 'ballCount'];
-    const placementItems = ['wallSquare', 'wallCircle', 'wallTriangle', 'wallRect', 'cash', 'multiplier', 'levelUp'];
+    const placementItems = ['wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon', 'cash', 'multiplier', 'levelUp'];
     
     if (immediateEffectItems.includes(itemType)) {
         // Apply immediate effect and mark as used
@@ -1856,12 +2252,12 @@ function selectItemFromModal(itemType) {
 
 // Helper function to get all wall items
 function getWallItems() {
-    return ['wallSquare', 'wallCircle', 'wallTriangle', 'wallRect'];
+    return ['wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon'];
 }
 
 // Helper function to get all non-wall items
 function getNonWallItems() {
-    return ['cash', 'multiplier', 'levelUp', 'ballLevel', 'ballCount'];
+    return ['cash', 'ballCount'];
 }
 
 // Function to select 4 random items for the turn (2 wall + 1 other + 1 ball count)
@@ -2005,6 +2401,25 @@ function placeTriangleWallItem(x, y) {
     return true;
 }
 
+// Function to place a hexagon wall item
+function placeHexagonWallItem(x, y) {
+    if (!items.wallHexagon.available) return false;
+    
+    // Create a hexagon wall of predetermined size (100 pixels) with current rotation
+    const wallSize = 100;
+    const wall = createHexagonWall(x, y, wallSize, wallItemRotation);
+    
+    // Mark ALL items as used for this turn
+    markAllItemsAsUsed();
+    
+    // Exit item mode
+    exitItemMode();
+    
+    return true;
+}
+
+
+
 // Function to place a rectangular wall item
 function placeWallRectItem(x, y) {
     if (!items.wallRect.available) return false;
@@ -2029,8 +2444,8 @@ function markAllItemsAsUsed() {
     items.wallCircle.used = true;
     items.wallTriangle.available = false;
     items.wallTriangle.used = true;
-    items.wallRect.available = false;
-    items.wallRect.used = true;
+    items.wallHexagon.available = false;
+    items.wallHexagon.used = true;
     items.cash.available = false;
     items.cash.used = true;
     items.multiplier.available = false;
@@ -2159,11 +2574,6 @@ function updateTestBallDisplay() {
     testBallCountElement.textContent = '🔴 ' + testBallCount;
 }
 
-// Function to update test ball click state based on whether test balls are present
-function updateTestBallClickState() {
-    const hasTestBalls = hasTestBallsOnCanvas();
-    isTestBallClickEnabled = !hasTestBalls;
-}
 
 // Function to update ball level display with color preview
 function updateBallLevelDisplay() {
@@ -2377,6 +2787,24 @@ drop10Button.addEventListener('click', () => {
     }
 });
 
+// Drop test button event listener
+dropTestButton.addEventListener('click', () => {
+    if (isPaused) return;
+    
+    // Don't allow dropping if modal is open or placing item
+    if (isModalOpen || isPlacingItem) {
+        return;
+    }
+    
+    // Don't allow dropping test balls if there are already test balls on the canvas
+    if (hasTestBallsOnCanvas()) {
+        return;
+    }
+    
+    // Drop test balls using current ball count
+    dropTestBalls();
+});
+
 // Wall tool button event listener
 wallToolButton.addEventListener('click', () => {
     if (wallDrawingMode) {
@@ -2571,6 +2999,19 @@ canvas.addEventListener('mousedown', function(event) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
+    // Check if clicking on a wall for dragging (only when not in any tool mode)
+    if (!removerMode && !wallDrawingMode && !multiplierPlacementMode && !portalMode && !cashMode && !levelUpMode && !currentItemMode) {
+        const wall = findWallAt(x, y);
+        if (wall) {
+            // Start dragging the wall
+            isDraggingWall = true;
+            draggedWall = wall;
+            dragOffsetX = x - wall.position.x;
+            dragOffsetY = y - wall.position.y;
+            return;
+        }
+    }
+    
     if (removerMode) {
         // Remove object at click point
         removeObjectAt(x, y);
@@ -2606,9 +3047,9 @@ canvas.addEventListener('mousedown', function(event) {
     } else if (currentItemMode === 'wallTriangle') {
         // Place a triangle wall item at the click point
         placeTriangleWallItem(x, y);
-    } else if (currentItemMode === 'wallRect') {
-        // Place a rectangular wall item at the click point
-        placeWallRectItem(x, y);
+    } else if (currentItemMode === 'wallHexagon') {
+        // Place a hexagon wall item at the click point
+        placeHexagonWallItem(x, y);
     } else if (currentItemMode === 'cash') {
         // Place a cash region item at the click point
         placeCashRegionItem(x, y);
@@ -2618,11 +3059,6 @@ canvas.addEventListener('mousedown', function(event) {
     } else if (currentItemMode === 'levelUp') {
         // Place a level up region item at the click point
         placeLevelUpRegionItem(x, y);
-    } else {
-        // Click to drop a test ball at the clicked location (only if no test balls are active)
-        if (isTestBallClickEnabled) {
-            createTestBall(x, y);
-        }
     }
 });
 
@@ -2656,6 +3092,20 @@ canvas.addEventListener('mousemove', function(event) {
     // Always track mouse position for cursor preview
     mouseX = x;
     mouseY = y;
+    
+    // Handle wall dragging
+    if (isDraggingWall && draggedWall) {
+        // Update wall position
+        const newX = x - dragOffsetX;
+        const newY = y - dragOffsetY;
+        
+        // Update the wall's position in Matter.js
+        Matter.Body.setPosition(draggedWall, { x: newX, y: newY });
+        
+        // Update cursor to show dragging
+        canvas.style.cursor = 'grabbing';
+        return;
+    }
     
     // Update hover tracking for remover tool
     if (removerMode) {
@@ -2705,6 +3155,10 @@ canvas.addEventListener('mousemove', function(event) {
         hoveredPortalRegion = null;
         hoveredCashRegion = null;
         hoveredLevelUpRegion = null;
+        
+        // Check if hovering over a wall for potential dragging
+        const wall = findWallAt(x, y);
+        canvas.style.cursor = wall ? 'grab' : 'pointer';
     }
     
     if (wallDrawingMode && isDrawingWall) {
@@ -2713,7 +3167,7 @@ canvas.addEventListener('mousemove', function(event) {
     }
     
     // Update wall item preview position
-    if (currentItemMode === 'wallSquare' || currentItemMode === 'wallCircle' || currentItemMode === 'wallTriangle' || currentItemMode === 'wallRect') {
+    if (currentItemMode === 'wallSquare' || currentItemMode === 'wallCircle' || currentItemMode === 'wallTriangle' || currentItemMode === 'wallHexagon') {
         wallItemPreviewX = x;
         wallItemPreviewY = y;
     }
@@ -2726,6 +3180,15 @@ canvas.addEventListener('mouseup', function(event) {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+    
+    // Stop wall dragging
+    if (isDraggingWall) {
+        isDraggingWall = false;
+        draggedWall = null;
+        dragOffsetX = 0;
+        dragOffsetY = 0;
+        return;
+    }
     
     if (wallDrawingMode && isDrawingWall) {
         wallEndX = x;
@@ -2763,8 +3226,32 @@ canvas.addEventListener('mousedown', function(event) {
 canvas.addEventListener('wheel', function(event) {
     if (isPaused) return;
     
+    // Handle wheel events when dragging a wall
+    if (isDraggingWall && draggedWall) {
+        event.preventDefault();
+        
+        // Adjust rotation based on wheel direction
+        const rotationStep = 0.1; // radians (about 5.7 degrees)
+        let newAngle = draggedWall.angle;
+        
+        if (event.deltaY < 0) {
+            // Scroll up - increase rotation
+            newAngle += rotationStep;
+        } else {
+            // Scroll down - decrease rotation
+            newAngle -= rotationStep;
+        }
+        
+        // Keep rotation between 0 and 2π
+        newAngle = ((newAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        
+        // Update the wall's rotation
+        Matter.Body.setAngle(draggedWall, newAngle);
+        return;
+    }
+    
     // Handle wheel events when in wall item mode
-    if (currentItemMode === 'wallSquare' || currentItemMode === 'wallTriangle' || currentItemMode === 'wallRect') {
+    if (currentItemMode === 'wallSquare' || currentItemMode === 'wallTriangle' || currentItemMode === 'wallHexagon') {
         event.preventDefault();
         
         // Adjust rotation based on wheel direction
@@ -2824,8 +3311,9 @@ function render() {
         // Skip sensor bodies (regions) - they're drawn manually
         if (body.isSensor) return;
         
-        // Check if this wall is being hovered over in remover mode
+        // Check if this wall is being hovered over in remover mode or being dragged
         const isHovered = removerMode && hoveredWall === body;
+        const isDragged = isDraggingWall && draggedWall === body;
         
         ctx.beginPath();
         
@@ -2842,17 +3330,22 @@ function render() {
             ctx.closePath();
         }
         
-        // Fill with color - red if hovered in remover mode, original color otherwise
+        // Fill with color - red if hovered in remover mode, blue if being dragged, original color otherwise
         if (isHovered) {
             ctx.fillStyle = COLORS.hover; // Red for hovered walls
+        } else if (isDragged) {
+            ctx.fillStyle = '#007bff'; // Blue for dragged walls
         } else {
             ctx.fillStyle = body.render.fillStyle || COLORS.wall;
         }
         ctx.fill();
         
-        // Add border - thicker and red if hovered
+        // Add border - thicker and colored if hovered or dragged
         if (isHovered) {
             ctx.strokeStyle = COLORS.hover;
+            ctx.lineWidth = 4;
+        } else if (isDragged) {
+            ctx.strokeStyle = '#0056b3'; // Darker blue for dragged walls
             ctx.lineWidth = 4;
         } else {
             ctx.strokeStyle = COLORS.gray;
@@ -3282,7 +3775,7 @@ function render() {
     }
     
     // Draw wall item preview if in wall item mode and mouse is on canvas
-    if ((currentItemMode === 'wallSquare' || currentItemMode === 'wallCircle' || currentItemMode === 'wallTriangle' || currentItemMode === 'wallRect') && isMouseOnCanvas) {
+    if ((currentItemMode === 'wallSquare' || currentItemMode === 'wallCircle' || currentItemMode === 'wallTriangle' || currentItemMode === 'wallHexagon') && isMouseOnCanvas) {
         ctx.fillStyle = 'rgba(139, 69, 19, 0.5)'; // Brown for wall item preview
         ctx.strokeStyle = '#8B4513'; // Brown for wall item preview
         ctx.lineWidth = WALL_CONFIG.previewLineWidth;
@@ -3351,41 +3844,31 @@ function render() {
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
-        } else if (currentItemMode === 'wallRect') {
-            // Draw rectangular wall preview
-            const width = 200;
-            const height = 20;
-            const halfWidth = width / 2;
-            const halfHeight = height / 2;
-            const cos = Math.cos(wallItemRotation);
-            const sin = Math.sin(wallItemRotation);
+        } else if (currentItemMode === 'wallHexagon') {
+            // Draw hexagon preview
+            const size = 100;
+            const radius = size / 2;
+            const vertices = [];
             
-            // Calculate rectangle corners
-            const corners = [
-                { x: wallItemPreviewX - halfWidth, y: wallItemPreviewY - halfHeight }, // Top left
-                { x: wallItemPreviewX + halfWidth, y: wallItemPreviewY - halfHeight }, // Top right
-                { x: wallItemPreviewX + halfWidth, y: wallItemPreviewY + halfHeight }, // Bottom right
-                { x: wallItemPreviewX - halfWidth, y: wallItemPreviewY + halfHeight }  // Bottom left
-            ];
-            
-            // Apply rotation to all corners
-            const rotatedCorners = corners.map(corner => {
-                const dx = corner.x - wallItemPreviewX;
-                const dy = corner.y - wallItemPreviewY;
-                return {
-                    x: wallItemPreviewX + dx * cos - dy * sin,
-                    y: wallItemPreviewY + dx * sin + dy * cos
-                };
-            });
+            // Create hexagon vertices
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * Math.PI / 3) + wallItemRotation;
+                vertices.push({
+                    x: wallItemPreviewX + Math.cos(angle) * radius,
+                    y: wallItemPreviewY + Math.sin(angle) * radius
+                });
+            }
             
             ctx.beginPath();
-            ctx.moveTo(rotatedCorners[0].x, rotatedCorners[0].y);
-            ctx.lineTo(rotatedCorners[1].x, rotatedCorners[1].y);
-            ctx.lineTo(rotatedCorners[2].x, rotatedCorners[2].y);
-            ctx.lineTo(rotatedCorners[3].x, rotatedCorners[3].y);
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < vertices.length; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
+            
+            
         }
         
         ctx.setLineDash([]); // Reset line dash
@@ -3717,7 +4200,11 @@ function render() {
         // When hovering over existing region, do NOTHING - no preview, no crosshair, nothing
     }
     
+    // Draw spawn indicator
+    drawSpawnIndicator();
     
+    // Draw money animations
+    moneyAnimations.forEach(animation => animation.draw(ctx));
     
 }
 
@@ -3737,6 +4224,9 @@ function gameLoop(currentTime) {
         // Check for stuck balls
         checkForStuckBalls();
     }
+    
+    // Update money animations
+    moneyAnimations = moneyAnimations.filter(animation => animation.update());
     
     // Render
     render();
@@ -3762,7 +4252,6 @@ initializeSliders();
 updatePhysicsSettings();
 updateDisplayValues();
 updateTestBallDisplay();
-updateTestBallClickState();
 updateItemButtonStates();
 updateCurrentBallLevelDisplay();
 updateDropButtonText();
@@ -3771,10 +4260,10 @@ updateDropButtonText();
 dropButton.textContent = 'Replace Floor';
 dropButton.style.background = '#2ed573';
 
-// Function to generate 9 random walls at game start
+// Function to generate 3 random walls at game start
 function generateRandomWalls() {
-    const wallTypes = ['square', 'circle', 'triangle'];
-    const numWalls = 9;
+    const wallTypes = ['square', 'circle', 'triangle', 'hexagon'];
+    const numWalls = 3;
     const canvasWidth = CANVAS_CONFIG.width;
     const canvasHeight = CANVAS_CONFIG.height;
     const margin = 50; // Margin from edges
@@ -3850,13 +4339,34 @@ function generateRandomWalls() {
                 case 'triangle':
                     wall = createTriangleWall(x, y, 120, rotation); // Same as item modal
                     break;
+                case 'hexagon':
+                    wall = createHexagonWall(x, y, 100, rotation); // Same as item modal
+                    break;
             }
             
             // Store wall info for collision checking
+            let wallSize;
+            switch (wallType) {
+                case 'square':
+                    wallSize = 80;
+                    break;
+                case 'circle':
+                    wallSize = 50;
+                    break;
+                case 'triangle':
+                    wallSize = 120;
+                    break;
+                case 'hexagon':
+                    wallSize = 100;
+                    break;
+                default:
+                    wallSize = 80;
+            }
+            
             walls.push({
                 x: x,
                 y: y,
-                size: wallType === 'circle' ? 50 : (wallType === 'square' ? 80 : 120),
+                size: wallSize,
                 wall: wall
             });
             
@@ -4004,6 +4514,7 @@ function generateRandomMultipliers() {
 
 // Initialize drop 10 button state
 updateDropButtonState();
+updateDropTestButtonState();
 
 // Helper function to check if a position conflicts with any portal regions
 function conflictsWithPortals(x, y, minDistance = 100) {
@@ -4035,7 +4546,7 @@ function generateRandomPortals() {
     if (bluePortalCorner === 0) {
         // Blue portal in bottom-left corner
         blueCenterX = margin + REGION_CONFIG.portal.width / 2;
-        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2;
+        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2 - 50; // Raised by 50 pixels
         
         // Orange portal in top-right corner
         orangeCenterX = canvasWidth - margin - REGION_CONFIG.portal.width / 2;
@@ -4043,7 +4554,7 @@ function generateRandomPortals() {
     } else {
         // Blue portal in bottom-right corner
         blueCenterX = canvasWidth - margin - REGION_CONFIG.portal.width / 2;
-        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2;
+        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2 - 50; // Raised by 50 pixels
         
         // Orange portal in top-left corner
         orangeCenterX = margin + REGION_CONFIG.portal.width / 2;
@@ -4070,6 +4581,9 @@ generateRandomWalls();
 
 // Generate random multipliers at game start (THIRD - avoids portals and walls)
 generateRandomMultipliers();
+
+// Calculate initial spawn position for turn 1
+calculateSpawnPosition();
 
 // Start the simulation
 requestAnimationFrame(gameLoop);
