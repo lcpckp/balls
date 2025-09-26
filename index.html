@@ -285,6 +285,8 @@
             opacity: 0;
             visibility: hidden;
             transition: all 0.3s ease;
+            width: auto;
+            min-width: 400px;
             max-width: 90vw;
             max-height: 90vh;
             overflow: hidden;
@@ -330,13 +332,42 @@
             justify-content: center;
         }
         
+        .item-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            width: 100%;
+            max-width: 1000px;
+        }
+        
+        .item-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: fit-content;
+        }
+        
+        .section-header {
+            margin: 0;
+            color: #e0e0e0;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            padding: 8px 0;
+            border-bottom: 2px solid #404040;
+            background: linear-gradient(90deg, transparent, #404040, transparent);
+            background-size: 100% 2px;
+            background-repeat: no-repeat;
+            background-position: center bottom;
+        }
+        
         .item-options {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
             justify-items: center;
-            max-width: 600px;
             margin: 0 auto;
+            width: 100%;
         }
         
         .item-option {
@@ -344,7 +375,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 16px 12px;
+            padding: 12px 8px;
             border: 2px solid #555;
             border-radius: 8px;
             background: #3a3a3a;
@@ -352,9 +383,9 @@
             transition: all 0.2s ease;
             text-align: center;
             width: 100%;
-            height: 120px;
+            height: 100px;
             min-width: 120px;
-            max-width: 140px;
+            max-width: 150px;
             box-sizing: border-box;
         }
         
@@ -379,6 +410,37 @@
             height: 32px;
         }
         
+        /* CSS-drawn wall icons using the same color as in-game walls */
+        .wall-icon-square {
+            width: 24px;
+            height: 24px;
+            background-color: #a0a0a0;
+            border: 2px solid #a0a0a0;
+        }
+        
+        .wall-icon-circle {
+            width: 24px;
+            height: 24px;
+            background-color: #a0a0a0;
+            border-radius: 50%;
+            border: 2px solid #a0a0a0;
+        }
+        
+        .wall-icon-triangle {
+            width: 0;
+            height: 0;
+            border-left: 16px solid transparent;
+            border-right: 16px solid transparent;
+            border-bottom: 28px solid #a0a0a0;
+        }
+        
+        .wall-icon-hexagon {
+            width: 28px;
+            height: 28px;
+            background-color: #a0a0a0;
+            clip-path: polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
+        }
+        
         .item-name {
             font-size: 12px;
             font-weight: 600;
@@ -387,6 +449,39 @@
             text-align: center;
             word-wrap: break-word;
             hyphens: auto;
+            margin-bottom: 4px;
+        }
+        
+        .item-price {
+            font-size: 11px;
+            font-weight: 700;
+            color: #2ed573;
+            text-align: center;
+            background: rgba(46, 213, 115, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(46, 213, 115, 0.3);
+        }
+        
+        /* Unaffordable item styling */
+        .item-option.unaffordable {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #666;
+            background: #2a2a2a;
+        }
+        
+        .item-option.unaffordable:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: #666;
+            background: #2a2a2a;
+        }
+        
+        .item-option.unaffordable .item-price {
+            color: #ff4757;
+            background: rgba(255, 71, 87, 0.1);
+            border-color: rgba(255, 71, 87, 0.3);
         }
         
         /* Wall items styling */
@@ -399,32 +494,135 @@
             background: #4a4a4a;
         }
         
-        /* Region items styling */
-        .item-option[data-item="cash"] {
+        /* Region options styling - stacked vertically */
+        .region-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+        
+        .region-option {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border: 2px dashed;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            width: 100%;
+            min-height: 60px;
+            box-sizing: border-box;
+        }
+        
+        .region-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .region-option:active {
+            transform: translateY(0);
+        }
+        
+        .region-icon {
+            font-size: 24px;
+            margin-right: 12px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+        }
+        
+        .region-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e0e0e0;
+            line-height: 1.3;
+            flex: 1;
+            text-align: left;
+        }
+        
+        .region-price {
+            font-size: 12px;
+            font-weight: 700;
+            color: #2ed573;
+            text-align: right;
+            background: rgba(46, 213, 115, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(46, 213, 115, 0.3);
+            min-width: 60px;
+        }
+        
+        /* Cash region styling */
+        .region-option[data-item="cash"] {
             border-color: #2ed573;
+            background: rgba(46, 213, 115, 0.1);
         }
         
-        .item-option[data-item="cash"]:hover {
+        .region-option[data-item="cash"]:hover {
             border-color: #2ed573;
-            background: #2a4a3a;
+            background: rgba(46, 213, 115, 0.2);
         }
         
-        .item-option[data-item="multiplier"] {
+        /* Multiplier region styling */
+        .region-option[data-item="multiplier"] {
             border-color: #9c88ff;
+            background: rgba(156, 136, 255, 0.1);
         }
         
-        .item-option[data-item="multiplier"]:hover {
+        .region-option[data-item="multiplier"]:hover {
             border-color: #9c88ff;
-            background: #3a2a4a;
+            background: rgba(156, 136, 255, 0.2);
         }
         
-        .item-option[data-item="levelUp"] {
-            border-color: #ff6b35;
+        .region-option[data-item="multiplier"] .region-price {
+            color: #9c88ff;
+            background: rgba(156, 136, 255, 0.1);
+            border-color: rgba(156, 136, 255, 0.3);
         }
         
-        .item-option[data-item="levelUp"]:hover {
+        /* Level up region styling */
+        .region-option[data-item="levelUp"] {
             border-color: #ff6b35;
-            background: #4a2a1a;
+            background: rgba(255, 107, 53, 0.1);
+        }
+        
+        .region-option[data-item="levelUp"]:hover {
+            border-color: #ff6b35;
+            background: rgba(255, 107, 53, 0.2);
+        }
+        
+        .region-option[data-item="levelUp"] .region-price {
+            color: #ff6b35;
+            background: rgba(255, 107, 53, 0.1);
+            border-color: rgba(255, 107, 53, 0.3);
+        }
+        
+        /* Unaffordable region styling */
+        .region-option.unaffordable {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #666;
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .region-option.unaffordable:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: #666;
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .region-option.unaffordable .region-price {
+            color: #ff4757;
+            background: rgba(255, 71, 87, 0.1);
+            border-color: rgba(255, 71, 87, 0.3);
         }
         
         /* Level up abilities styling */
@@ -439,7 +637,8 @@
             background: #4a2a2a;
         }
         
-        /* Make ballCount button span full width */
+        /* Make ballLevel and ballCount buttons span full width */
+        .item-option[data-item="ballLevel"],
         .item-option[data-item="ballCount"] {
             grid-column: 1 / -1;
             max-width: none;
@@ -448,22 +647,32 @@
         
         /* Responsive design for smaller screens */
         @media (max-width: 768px) {
-            .item-options {
-                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-                gap: 12px;
+            .item-modal {
+                min-width: 350px;
+                max-width: 95vw;
+            }
+            
+            .item-sections {
+                grid-template-columns: 1fr;
+                gap: 20px;
                 max-width: 100%;
             }
             
+            .item-options {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
             .item-option {
-                height: 100px;
+                height: 90px;
                 min-width: 100px;
-                max-width: 120px;
-                padding: 12px 8px;
+                max-width: 130px;
+                padding: 10px 6px;
             }
             
             .item-icon {
-                font-size: 24px;
-                height: 28px;
+                font-size: 22px;
+                height: 26px;
             }
             
             .item-name {
@@ -473,19 +682,32 @@
             .modal-body {
                 padding: 16px;
             }
+            
+            .section-header {
+                font-size: 16px;
+            }
         }
         
         @media (max-width: 480px) {
+            .item-modal {
+                min-width: 320px;
+                max-width: 98vw;
+            }
+            
+            .item-sections {
+                gap: 16px;
+            }
+            
             .item-options {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 10px;
+                grid-template-columns: 1fr;
+                gap: 8px;
             }
             
             .item-option {
-                height: 90px;
+                height: 80px;
                 min-width: 90px;
-                max-width: 100px;
-                padding: 10px 6px;
+                max-width: 120px;
+                padding: 8px 4px;
             }
             
             .item-icon {
@@ -495,6 +717,10 @@
             
             .item-name {
                 font-size: 10px;
+            }
+            
+            .section-header {
+                font-size: 14px;
             }
         }
         
@@ -512,46 +738,76 @@
     <div class="item-modal" id="itemModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Choose Item</h2>
+                <h2>Shop</h2>
+                <p class="modal-subtitle">Select an item to purchase</p>
             </div>
             <div class="modal-body">
-                <div class="item-options">
-                    <button class="item-option" data-item="wallSquare">
-                        <div class="item-icon">⬜</div>
-                        <div class="item-name">Square Wall</div>
-                    </button>
-                    <button class="item-option" data-item="wallCircle">
-                        <div class="item-icon">🔴</div>
-                        <div class="item-name">Circle Wall</div>
-                    </button>
-                    <button class="item-option" data-item="wallTriangle">
-                        <div class="item-icon">🔺</div>
-                        <div class="item-name">Triangle Wall</div>
-                    </button>
-                    <button class="item-option" data-item="wallHexagon">
-                        <div class="item-icon">⬡</div>
-                        <div class="item-name">Hexagon Wall</div>
-                    </button>
-                    <button class="item-option" data-item="cash">
-                        <div class="item-icon">💰</div>
-                        <div class="item-name">Cash Region</div>
-                    </button>
-                    <button class="item-option" data-item="multiplier">
-                        <div class="item-icon">⚡</div>
-                        <div class="item-name">Multiplier (x2)</div>
-                    </button>
-                    <button class="item-option" data-item="levelUp">
-                        <div class="item-icon">⬆️</div>
-                        <div class="item-name">Level Up Region</div>
-                    </button>
-                    <button class="item-option" data-item="ballLevel">
-                        <div class="item-icon">⬆️</div>
-                        <div class="item-name">Ball Level +1</div>
-                    </button>
-                    <button class="item-option" data-item="ballCount">
-                        <div class="item-icon">⚪</div>
-                        <div class="item-name">Ball Count +1</div>
-                    </button>
+                <div class="item-sections">
+                    <!-- Walls Section -->
+                    <div class="item-section">
+                        <h3 class="section-header">Walls</h3>
+                        <div class="item-options">
+                            <button class="item-option" data-item="wallSquare" data-price="100">
+                                <div class="item-icon wall-icon-square"></div>
+                                <div class="item-name">Square Wall</div>
+                                <div class="item-price">$100</div>
+                            </button>
+                            <button class="item-option" data-item="wallCircle" data-price="5">
+                                <div class="item-icon wall-icon-circle"></div>
+                                <div class="item-name">Circle Wall</div>
+                                <div class="item-price">$5</div>
+                            </button>
+                            <button class="item-option" data-item="wallTriangle" data-price="100">
+                                <div class="item-icon wall-icon-triangle"></div>
+                                <div class="item-name">Triangle Wall</div>
+                                <div class="item-price">$100</div>
+                            </button>
+                            <button class="item-option" data-item="wallHexagon" data-price="50">
+                                <div class="item-icon wall-icon-hexagon"></div>
+                                <div class="item-name">Hexagon Wall</div>
+                                <div class="item-price">$50</div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Regions Section -->
+                    <div class="item-section">
+                        <h3 class="section-header">Regions</h3>
+                        <div class="region-options">
+                            <button class="region-option" data-item="cash" data-price="50">
+                                <div class="region-icon">💰</div>
+                                <div class="region-name">Cash Region</div>
+                                <div class="region-price">$50</div>
+                            </button>
+                            <button class="region-option" data-item="multiplier" data-price="500">
+                                <div class="region-icon">⚡</div>
+                                <div class="region-name">Multiplier (x2)</div>
+                                <div class="region-price">$500</div>
+                            </button>
+                            <button class="region-option" data-item="levelUp" data-price="200">
+                                <div class="region-icon">⬆️</div>
+                                <div class="region-name">Level Up Region</div>
+                                <div class="region-price">$200</div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Upgrades Section -->
+                    <div class="item-section">
+                        <h3 class="section-header">Upgrades</h3>
+                        <div class="item-options">
+                            <button class="item-option" data-item="ballLevel" data-price="1000">
+                                <div class="item-icon">⬆️</div>
+                                <div class="item-name">Ball Level +1</div>
+                                <div class="item-price">$1000</div>
+                            </button>
+                            <button class="item-option" data-item="ballCount" data-price="0">
+                                <div class="item-icon">⚪</div>
+                                <div class="item-name">Ball Count +1</div>
+                                <div class="item-price">Free</div>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -668,14 +924,13 @@
         <div class="right-panel">
             <div class="game-info-pane">
                 <div class="control-group">
-                    <div class="control-row">
-                        <button id="drop10Button" style="width: 100%; padding: 15px; background: #ff6b35; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;">Drop 10</button>
+                    <div class="control-row" style="justify-content: space-between; margin-bottom: 10px;">
+                        <span class="value-display" id="turnValue" style="font-size: 20px; font-weight: bold;">Turn: 0</span>
+                        <span class="value-display" id="currentBallLevelValue" style="font-size: 14px; font-weight: bold;">Ball Level: 1</span>
                     </div>
-                    <div class="control-row" style="justify-content: center; margin-top: 10px;">
-                        <span class="value-display" id="turnValue" style="font-size: 16px; font-weight: bold;">Turn: 0</span>
-                    </div>
-                    <div class="control-row" style="justify-content: center; margin-top: 5px;">
-                        <span class="value-display" id="currentBallLevelValue" style="font-size: 14px; font-weight: bold;">Level: 1</span>
+                    <div class="control-row" style="gap: 10px;">
+                        <button id="dropTestButton" style="flex: 1; padding: 15px; background: #ff6b6b; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;">Test</button>
+                        <button id="drop10Button" style="flex: 1; padding: 15px; background: #ff6b35; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;">Drop 10</button>
                     </div>
                 </div>
                 
@@ -697,9 +952,6 @@
                 </div>
                 
                 <div class="control-group">
-                    <div class="control-row">
-                        <button id="dropTestButton" style="width: 100%; padding: 15px; background: #ff6b6b; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;">Drop Test</button>
-                    </div>
                     <div class="control-row">
                         <button id="dropButton" style="width: 100%; padding: 15px; background: #ff4757; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; display: none;">Drop</button>
                     </div>

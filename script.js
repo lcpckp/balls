@@ -345,6 +345,7 @@ let currentSpawnX = null; // X position where balls will spawn this turn
 // Test ball system
 let testBallCount = 0;
 let hadTestBallsInPreviousState = false;
+let testBallTimeouts = []; // Track timeout IDs for test ball drops
 
 // Stuck ball detection state
 let lastBallDeletionTime = 0;
@@ -353,6 +354,9 @@ let velocityThreshold = 0.5; // Minimum total velocity to consider balls as movi
 let velocityDebounceTime = 1000; // 1 second debounce for velocity-based stuck detection
 let lastVelocityCheckTime = 0;
 let isStuck = false;
+
+// Test button state
+let isEndingTest = false; // Flag to prevent turn increment when ending test
 
 // Simulation state
 let isPaused = false;
@@ -449,6 +453,261 @@ class MoneyAnimation {
 
 let moneyAnimations = []; // Array to store active money animations
 
+// Item dropping animation system
+class DroppingAnimation {
+    constructor(itemType, startX, startY, endX, endY, itemData) {
+        this.itemType = itemType;
+        this.startX = startX;
+        this.startY = startY;
+        this.endX = endX;
+        this.endY = endY;
+        this.itemData = itemData;
+        this.progress = 0;
+        this.duration = 1000; // 1 second animation
+        this.startTime = Date.now();
+        this.scale = 1.5; // Start scaled up
+        this.opacity = 0; // Start with 0 opacity
+        this.body = null; // Will be set when animation completes
+        
+        // Get final opacity for this item type
+        this.finalOpacity = this.getFinalOpacity();
+    }
+    
+    getFinalOpacity() {
+        // Return the final opacity that this item type should have
+        switch (this.itemType) {
+            case 'cash':
+                return 0.3; // rgba(46, 213, 115, 0.3)
+            case 'multiplier':
+                return 0.3; // rgba(156, 136, 255, 0.3) - assuming similar to cash
+            case 'levelUp':
+                return 0.3; // rgba(255, 107, 53, 0.3) - assuming similar to cash
+            case 'wallSquare':
+            case 'wallCircle':
+            case 'wallTriangle':
+            case 'wallHexagon':
+                return 1.0; // Walls are fully opaque
+            default:
+                return 1.0; // Default to fully opaque
+        }
+    }
+    
+    update() {
+        const elapsed = Date.now() - this.startTime;
+        this.progress = Math.min(elapsed / this.duration, 1);
+        
+        // Easing function for smooth animation
+        const easeOutCubic = 1 - Math.pow(1 - this.progress, 3);
+        
+        // Update scale (from 1.5 to 1.0)
+        this.scale = 1.5 - (0.5 * easeOutCubic);
+        
+        // Update opacity (from 0 to final opacity)
+        this.opacity = this.finalOpacity * easeOutCubic;
+        
+        // Update position (from start to end)
+        this.currentX = this.startX + (this.endX - this.startX) * easeOutCubic;
+        this.currentY = this.startY + (this.endY - this.startY) * easeOutCubic;
+        
+        return this.progress >= 1;
+    }
+    
+    draw(ctx) {
+        if (this.progress >= 1) return;
+        
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        
+        // Draw the item at current position with current scale
+        this.drawItem(ctx, this.currentX, this.currentY, this.scale);
+        
+        ctx.restore();
+    }
+    
+    drawItem(ctx, x, y, scale) {
+        // Draw different items based on type
+        switch (this.itemType) {
+            case 'wallSquare':
+                this.drawSquareWall(ctx, x, y, scale);
+                break;
+            case 'wallCircle':
+                this.drawCircleWall(ctx, x, y, scale);
+                break;
+            case 'wallTriangle':
+                this.drawTriangleWall(ctx, x, y, scale);
+                break;
+            case 'wallHexagon':
+                this.drawHexagonWall(ctx, x, y, scale);
+                break;
+            case 'cash':
+                this.drawCashRegion(ctx, x, y, scale);
+                break;
+            case 'multiplier':
+                this.drawMultiplierRegion(ctx, x, y, scale);
+                break;
+            case 'levelUp':
+                this.drawLevelUpRegion(ctx, x, y, scale);
+                break;
+        }
+    }
+    
+    drawSquareWall(ctx, x, y, scale) {
+        const size = 80 * scale;
+        ctx.fillStyle = WALL_CONFIG.color;
+        ctx.fillRect(x - size/2, y - size/2, size, size);
+    }
+    
+    drawCircleWall(ctx, x, y, scale) {
+        const radius = 50 * scale;
+        ctx.fillStyle = WALL_CONFIG.color;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+    
+    drawTriangleWall(ctx, x, y, scale) {
+        const size = 120 * scale;
+        const halfSize = size / 2;
+        ctx.fillStyle = WALL_CONFIG.color;
+        ctx.beginPath();
+        ctx.moveTo(x, y - halfSize);
+        ctx.lineTo(x - halfSize * Math.cos(Math.PI / 6), y + halfSize * Math.sin(Math.PI / 6));
+        ctx.lineTo(x + halfSize * Math.cos(Math.PI / 6), y + halfSize * Math.sin(Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+    }
+    
+    drawHexagonWall(ctx, x, y, scale) {
+        const radius = 50 * scale;
+        ctx.fillStyle = WALL_CONFIG.color;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = i * Math.PI / 3;
+            const px = x + Math.cos(angle) * radius;
+            const py = y + Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
+    
+    drawCashRegion(ctx, x, y, scale) {
+        const width = 90 * scale;
+        const height = 20 * scale;
+        
+        // Use the exact same color as the final cash region
+        ctx.fillStyle = 'rgba(46, 213, 115, 0.3)';
+        ctx.fillRect(x - width/2, y - height/2, width, height);
+        
+        // Draw border
+        ctx.strokeStyle = '#2ed573';
+        ctx.lineWidth = 2 * scale;
+        ctx.setLineDash([5 * scale, 5 * scale]);
+        ctx.strokeRect(x - width/2, y - height/2, width, height);
+        ctx.setLineDash([]);
+        
+        // Draw money symbol
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${12 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💰', x, y);
+    }
+    
+    drawMultiplierRegion(ctx, x, y, scale) {
+        const width = 90 * scale;
+        const height = 20 * scale;
+        
+        // Use the exact same color as the final multiplier region
+        ctx.fillStyle = 'rgba(156, 136, 255, 0.3)';
+        ctx.fillRect(x - width/2, y - height/2, width, height);
+        
+        // Draw border
+        ctx.strokeStyle = '#9c88ff';
+        ctx.lineWidth = 2 * scale;
+        ctx.setLineDash([5 * scale, 5 * scale]);
+        ctx.strokeRect(x - width/2, y - height/2, width, height);
+        ctx.setLineDash([]);
+        
+        // Draw multiplier symbol
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${12 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⚡', x, y);
+    }
+    
+    drawLevelUpRegion(ctx, x, y, scale) {
+        const width = 90 * scale;
+        const height = 20 * scale;
+        
+        // Use the exact same color as the final level up region
+        ctx.fillStyle = 'rgba(255, 107, 53, 0.3)';
+        ctx.fillRect(x - width/2, y - height/2, width, height);
+        
+        // Draw border
+        ctx.strokeStyle = '#ff6b35';
+        ctx.lineWidth = 2 * scale;
+        ctx.setLineDash([5 * scale, 5 * scale]);
+        ctx.strokeRect(x - width/2, y - height/2, width, height);
+        ctx.setLineDash([]);
+        
+        // Draw level up symbol
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${12 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⬆️', x, y);
+    }
+}
+
+let droppingAnimations = []; // Array to store active dropping animations
+
+// Function to create the actual item when animation completes
+function createActualItem(animation) {
+    const { itemType, endX, endY, itemData } = animation;
+    
+    if (itemType.includes('wall')) {
+        // Create wall
+        let wall;
+        switch (itemType) {
+            case 'wallSquare':
+                wall = createSquareWall(endX, endY, 80, itemData.rotation);
+                break;
+            case 'wallCircle':
+                wall = createCircleWall(endX, endY, 50);
+                break;
+            case 'wallTriangle':
+                wall = createTriangleWall(endX, endY, 120, itemData.rotation);
+                break;
+            case 'wallHexagon':
+                wall = createHexagonWall(endX, endY, 100, itemData.rotation);
+                break;
+        }
+        
+        if (wall) {
+            World.add(world, wall);
+            console.log(`Created actual ${itemType} at (${endX.toFixed(1)}, ${endY.toFixed(1)})`);
+        }
+    } else {
+        // Create region
+        switch (itemType) {
+            case 'cash':
+                createCashRegion(endX, endY, itemData.rotation);
+                break;
+            case 'multiplier':
+                createMultiplierRegion(endX, endY, 2, itemData.rotation);
+                break;
+            case 'levelUp':
+                createLevelUpRegion(endX, endY, itemData.rotation);
+                break;
+        }
+        
+        console.log(`Created actual ${itemType} at (${endX.toFixed(1)}, ${endY.toFixed(1)})`);
+    }
+}
+
 // Item system state
 let items = {
     wallSquare: { available: true, used: false },
@@ -524,8 +783,8 @@ function exitAllModes() {
     // Reset item button states
     updateItemButtonStates();
     
-    // Reset cursor to pointer
-    canvas.style.cursor = 'pointer';
+    // Reset cursor to crosshair
+    canvas.style.cursor = 'crosshair';
 }
 
 
@@ -725,11 +984,16 @@ function dropTestBalls() {
     testBallCount = currentBallCount;
     updateTestBallDisplay();
     
+    // Clear any existing test ball timeouts
+    testBallTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    testBallTimeouts = [];
+    
     // Drop test balls from the pre-calculated position with spawn delay
     for (let i = 0; i < currentBallCount; i++) {
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
             createCircle(currentSpawnX, spawnY, true, 1); // Test balls are always level 1
         }, i * physicsSettings.spawnDelay);
+        testBallTimeouts.push(timeoutId);
     }
     
     // Update drop test button state
@@ -1689,6 +1953,49 @@ function hasTestBallsOnCanvas() {
     );
 }
 
+// Function to end test (clear only test balls, don't affect turn system)
+function endTest() {
+    const bodies = Matter.Composite.allBodies(world);
+    
+    // Set flag to prevent turn increment
+    isEndingTest = true;
+    
+    // Clear all pending test ball timeouts
+    testBallTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    testBallTimeouts = [];
+    
+    bodies.forEach(body => {
+        // Only remove test balls
+        if (body.circleRadius && body.isTestBall && body !== leftWall && body !== rightWall && body !== tankWall && body !== tankTopWall && !body.isWall) {
+            World.remove(world, body);
+            objectCount--;
+        }
+    });
+    
+    // Reset stuck state
+    isStuck = false;
+    lastBallDeletionTime = 0;
+    
+    // Update displays
+    objectCountElement.textContent = objectCount;
+    updateDisplayValues();
+    
+    // Reset test ball state
+    testBallCount = 0;
+    updateTestBallDisplay();
+    
+    // Reset test ball tracking state
+    hadTestBallsInPreviousState = false;
+    
+    // Update button state after a small delay to ensure Matter.js has processed removals
+    setTimeout(() => {
+        updateDropButtonState();
+        updateDropTestButtonState();
+        // Clear the flag after button states are updated
+        isEndingTest = false;
+    }, 10);
+}
+
 // Function to force clear all balls (for stuck ball recovery)
 function forceClearBalls() {
     const bodies = Matter.Composite.allBodies(world);
@@ -1718,43 +2025,52 @@ function forceClearBalls() {
     objectCountElement.textContent = objectCount;
     updateDisplayValues();
     
-    // Update button state (this will handle turn increment if appropriate)
-    updateDropButtonState();
-    
     // Reset test ball state
     testBallCount = 0;
     updateTestBallDisplay();
     
     // Reset test ball tracking state
     hadTestBallsInPreviousState = false;
+    
+    // Update button state after a small delay to ensure Matter.js has processed removals
+    setTimeout(() => {
+        updateDropButtonState();
+        updateDropTestButtonState();
+    }, 10);
 }
 
 // Function to update drop test button state
 function updateDropTestButtonState() {
     const hasTestBalls = hasTestBallsOnCanvas();
+    const hasRegularBalls = hasBallsOnCanvas() && !hasTestBalls;
     
     // Check if modal is open or if we're in placement mode
     if (isModalOpen || isPlacingItem) {
-        // Modal is open or placing item - disable drop test button
         dropTestButton.disabled = true;
         dropTestButton.style.background = '#cccccc';
         dropTestButton.style.cursor = 'not-allowed';
-        dropTestButton.textContent = 'Drop Test';
+        dropTestButton.textContent = 'Test';
         return;
     }
     
     if (hasTestBalls) {
-        // Test balls are active - disable button
+        // Testing mode - show "End Test"
+        dropTestButton.disabled = false;
+        dropTestButton.style.background = '#ff4757';
+        dropTestButton.style.cursor = 'pointer';
+        dropTestButton.textContent = 'End Test';
+    } else if (hasRegularBalls) {
+        // Regular dropping mode - disable test button
         dropTestButton.disabled = true;
         dropTestButton.style.background = '#cccccc';
         dropTestButton.style.cursor = 'not-allowed';
-        dropTestButton.textContent = 'Test Active...';
+        dropTestButton.textContent = 'Test';
     } else {
-        // No test balls - ready to drop test balls
+        // Ready mode - enable test button
         dropTestButton.disabled = false;
         dropTestButton.style.background = '#ff6b6b';
         dropTestButton.style.cursor = 'pointer';
-        dropTestButton.textContent = 'Drop Test';
+        dropTestButton.textContent = 'Test';
     }
 }
 
@@ -1762,59 +2078,58 @@ function updateDropTestButtonState() {
 function updateDropButtonState() {
     const hasBalls = hasBallsOnCanvas();
     const hasTestBalls = hasTestBallsOnCanvas();
+    const hasRegularBalls = hasBalls && !hasTestBalls;
     const wasEnabled = isDropButtonEnabled;
     isDropButtonEnabled = !hasBalls;
     
     // Check if modal is open or if we're in placement mode
     if (isModalOpen || isPlacingItem) {
-        // Modal is open or placing item - disable drop button
         drop10Button.disabled = true;
         drop10Button.style.background = '#cccccc';
         drop10Button.style.cursor = 'not-allowed';
-        if (isModalOpen) {
-            drop10Button.textContent = 'Placing item...';
-        } else if (isPlacingItem) {
-            drop10Button.textContent = 'Place Item...';
-        }
-        return; // Don't proceed with normal logic
+        return;
     }
     
-    if (isStuck) {
-        // Stuck state - show force clear option
-        drop10Button.disabled = false;
-        drop10Button.style.background = '#ff4757'; // Red for force clear
-        drop10Button.style.cursor = 'pointer';
-        // Show "Stop Test" if there are test balls, otherwise "Force Next Turn"
-        drop10Button.textContent = hasTestBalls ? 'Stop Test' : 'Force Next Turn';
-    } else if (hasBalls) {
-        // Normal active state - balls are moving
+    if (hasTestBalls) {
+        // Testing mode - disable drop button
         drop10Button.disabled = true;
         drop10Button.style.background = '#cccccc';
         drop10Button.style.cursor = 'not-allowed';
-        drop10Button.textContent = 'Balls Active...';
-        
-        // Track whether we currently have test balls for the next state transition
-        hadTestBallsInPreviousState = hasTestBalls;
+        drop10Button.textContent = 'Drop 10';
+        // Track that we have test balls for turn increment logic
+        hadTestBallsInPreviousState = true;
+    } else if (hasRegularBalls) {
+        if (isStuck) {
+            // Regular dropping mode - stuck, show "Next Turn"
+            drop10Button.disabled = false;
+            drop10Button.style.background = '#ff4757';
+            drop10Button.style.cursor = 'pointer';
+            drop10Button.textContent = 'Next Turn';
+        } else {
+            // Regular dropping mode - active, show "Dropping..."
+            drop10Button.disabled = true;
+            drop10Button.style.background = '#cccccc';
+            drop10Button.style.cursor = 'not-allowed';
+            drop10Button.textContent = 'Dropping...';
+        }
+        // Track for turn increment
+        hadTestBallsInPreviousState = false;
     } else {
-        // No balls - ready for next turn
+        // Ready mode - enable drop button
         drop10Button.disabled = false;
         drop10Button.style.background = '#ff6b35';
         drop10Button.style.cursor = 'pointer';
-        updateDropButtonText(); // Use the function to get current ball count
+        updateDropButtonText();
         
-        // Increment turn when button becomes ready (transition from disabled to enabled)
-        // Only increment if we were just doing a regular ball drop, not a test ball
-        if (!wasEnabled && isDropButtonEnabled) {
-            // Only increment turn if the previous state had regular balls (not test balls)
-            if (!hadTestBallsInPreviousState) {
-                currentTurn++;
-                updateTurnDisplay();
-                resetItemsForNewTurn();
-                
-                // Show item selection modal starting from turn 2
-                if (currentTurn >= 2) {
-                    showItemModal();
-                }
+        // Increment turn when transitioning from disabled to enabled (only for regular drops)
+        if (!wasEnabled && isDropButtonEnabled && !hadTestBallsInPreviousState && !isEndingTest) {
+            currentTurn++;
+            updateTurnDisplay();
+            resetItemsForNewTurn();
+            
+            // Show item selection modal starting from turn 2
+            if (currentTurn >= 2) {
+                showItemModal();
             }
         }
     }
@@ -1897,6 +2212,7 @@ function checkForStuckBalls() {
                 if (!isStuck) {
                     isStuck = true;
                     updateDropButtonState();
+                    updateDropTestButtonState();
                 }
             }
         } else {
@@ -1905,6 +2221,7 @@ function checkForStuckBalls() {
             if (isStuck) {
                 isStuck = false;
                 updateDropButtonState();
+                updateDropTestButtonState();
             }
         }
     } else {
@@ -2122,6 +2439,28 @@ function drawSpawnIndicator() {
     
     ctx.save();
     
+    // Draw subtle glowing effect behind the indicator with breathing animation
+    const baseGlowRadius = 35;
+    const breathingIntensity = 0.1; // How much the radius changes (10%)
+    const breathingSpeed = 0.003; // How fast it breathes
+    const glowRadius = baseGlowRadius + Math.sin(Date.now() * breathingSpeed) * breathingIntensity * baseGlowRadius;
+    
+    const glowGradient = ctx.createRadialGradient(
+        currentSpawnX, arrowY, 0,
+        currentSpawnX, arrowY, glowRadius
+    );
+    glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
+    glowGradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.12)');
+    glowGradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.06)');
+    glowGradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.02)');
+    glowGradient.addColorStop(0.9, 'rgba(255, 255, 255, 0.005)');
+    glowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    
+    ctx.fillStyle = glowGradient;
+    ctx.beginPath();
+    ctx.arc(currentSpawnX, arrowY, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
     // Draw "DROP" text above the arrow
     ctx.font = 'bold 10px Arial';
     ctx.fillStyle = '#ffffff';
@@ -2198,9 +2537,8 @@ function showItemModal() {
     
     isModalOpen = true;
     
-    // Select 4 random items: 2 wall items + 1 other item + 1 ball count
-    const selectedItems = selectRandomItemsForTurn();
-    updateModalWithSelectedItems(selectedItems);
+    // Show all available items instead of random selection
+    showAllItemsInModal();
     
     // Show modal with animation
     itemModalBackdrop.classList.add('show');
@@ -2226,122 +2564,224 @@ function hideItemModal() {
     }
 }
 
+// Function to find a random position within the game area
+function findRandomPosition(itemType) {
+    const canvasWidth = CANVAS_CONFIG.width;
+    const canvasHeight = CANVAS_CONFIG.height;
+    
+    // Define safe margins from edges
+    const margin = 50;
+    
+    // Define item sizes based on type
+    let itemSize = 50; // default
+    if (itemType.includes('wall')) {
+        if (itemType === 'wallSquare') itemSize = 80;
+        else if (itemType === 'wallCircle') itemSize = 50;
+        else if (itemType === 'wallTriangle') itemSize = 120;
+        else if (itemType === 'wallHexagon') itemSize = 100;
+    } else if (itemType === 'cash' || itemType === 'multiplier' || itemType === 'levelUp') {
+        itemSize = 60; // region size
+    }
+    
+    // Calculate safe area
+    const minX = margin + itemSize / 2;
+    const maxX = canvasWidth - margin - itemSize / 2;
+    const minY = margin + itemSize / 2;
+    const maxY = canvasHeight - margin - itemSize / 2;
+    
+    // Generate random position
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
+    
+    return { x, y };
+}
+
+// Function to automatically place a wall item
+function autoPlaceWall(itemType) {
+    const position = findRandomPosition(itemType);
+    
+    // Create dropping animation starting from top of screen
+    const startX = position.x;
+    const startY = 50; // Start from top of screen
+    const endX = position.x;
+    const endY = position.y;
+    
+    const animation = new DroppingAnimation(itemType, startX, startY, endX, endY, {
+        rotation: 0 // No rotation - keep default angle
+    });
+    
+    droppingAnimations.push(animation);
+    
+    console.log(`Started dropping animation for ${itemType} to (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
+}
+
+// Function to automatically upgrade a region item
+function autoUpgradeRegion(itemType) {
+    const success = upgradeRandomRegion(itemType);
+    
+    if (!success) {
+        console.log(`Failed to upgrade ${itemType} region - no existing regions found`);
+    }
+}
+
+// Function to upgrade a random existing region of the specified type
+function upgradeRandomRegion(itemType) {
+    let regions = [];
+    
+    // Get the appropriate region array based on type
+    if (itemType === 'cash') {
+        regions = cashRegions;
+    } else if (itemType === 'multiplier') {
+        regions = multiplierRegions;
+    } else if (itemType === 'levelUp') {
+        regions = levelUpRegions;
+    }
+    
+    // Check if there are any existing regions of this type
+    if (regions.length === 0) {
+        return false;
+    }
+    
+    // Select a random region to upgrade
+    const randomIndex = Math.floor(Math.random() * regions.length);
+    const regionToUpgrade = regions[randomIndex];
+    
+    // Upgrade the region
+    regionToUpgrade.level++;
+    
+    // For multiplier regions, also update the factor
+    if (itemType === 'multiplier') {
+        regionToUpgrade.factor = regionToUpgrade.level + 1; // factor = level + 1
+    }
+    
+    console.log(`Upgraded ${itemType} region to level ${regionToUpgrade.level}`);
+    
+    // Mark ALL items as used for this turn
+    markAllItemsAsUsed();
+    
+    return true;
+}
+
 // Function to handle item selection from modal
 function selectItemFromModal(itemType) {
     if (!items[itemType].available) return;
     
+    // Check if player can afford the item
+    if (!canAffordItem(itemType)) {
+        console.log(`Cannot afford ${itemType} - need $${itemPrices[itemType]}, have $${wallet.money}`);
+        return;
+    }
+    
+    // Purchase the item
+    if (!purchaseItem(itemType)) {
+        console.log(`Failed to purchase ${itemType}`);
+        return;
+    }
+    
+    console.log(`Purchased ${itemType} for $${itemPrices[itemType]}`);
+    
     // Close modal first
     hideItemModal();
     
-    // Categorize items into immediate effects vs placement items
+    // Categorize items into immediate effects vs auto-placed items
     const immediateEffectItems = ['ballLevel', 'ballCount'];
-    const placementItems = ['wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon', 'cash', 'multiplier', 'levelUp'];
+    const wallItems = ['wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon'];
+    const regionItems = ['cash', 'multiplier', 'levelUp'];
     
     if (immediateEffectItems.includes(itemType)) {
-        // Apply immediate effect and mark as used
+        // Apply immediate effect
         if (itemType === 'ballLevel') {
             useBallLevelItem();
         } else if (itemType === 'ballCount') {
             useBallCountItem();
         }
-    } else if (placementItems.includes(itemType)) {
-        // Enter placement mode
-        enterItemPlacementMode(itemType);
+    } else if (wallItems.includes(itemType)) {
+        // Auto-place wall
+        autoPlaceWall(itemType);
+    } else if (regionItems.includes(itemType)) {
+        // Auto-upgrade region
+        autoUpgradeRegion(itemType);
     }
 }
 
-// Helper function to get all wall items
-function getWallItems() {
-    return ['wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon'];
+// Item pricing configuration
+const itemPrices = {
+    wallSquare: 100,
+    wallCircle: 5,
+    wallTriangle: 100,
+    wallHexagon: 50,
+    cash: 50,
+    multiplier: 500,
+    levelUp: 200,
+    ballLevel: 1000,
+    ballCount: 0
+};
+
+// Function to check if player can afford an item
+function canAffordItem(itemType) {
+    const price = itemPrices[itemType];
+    return wallet.money >= price;
 }
 
-// Helper function to get all non-wall items
-function getNonWallItems() {
-    return ['cash', 'ballCount'];
-}
-
-// Function to select 4 random items for the turn (2 wall + 1 other + 1 ball count)
-function selectRandomItemsForTurn() {
-    const wallItems = getWallItems();
-    const nonWallItems = getNonWallItems();
-    
-    // Select 2 random wall items
-    const selectedWallItems = [];
-    const availableWallItems = [...wallItems];
-    for (let i = 0; i < 2; i++) {
-        const randomIndex = Math.floor(Math.random() * availableWallItems.length);
-        selectedWallItems.push(availableWallItems.splice(randomIndex, 1)[0]);
+// Function to purchase an item
+function purchaseItem(itemType) {
+    const price = itemPrices[itemType];
+    if (canAffordItem(itemType)) {
+        wallet.money -= price;
+        updateMoneyDisplay();
+        return true;
     }
-    
-    // Select 1 random non-wall item (excluding ballCount since it's always included)
-    const nonWallItemsWithoutBallCount = nonWallItems.filter(item => item !== 'ballCount');
-    const randomNonWallIndex = Math.floor(Math.random() * nonWallItemsWithoutBallCount.length);
-    const selectedNonWallItem = nonWallItemsWithoutBallCount[randomNonWallIndex];
-    
-    // Always include ballCount as the 4th option
-    const selectedItems = [...selectedWallItems, selectedNonWallItem, 'ballCount'];
-    console.log('Selected items for turn:', selectedItems);
-    
-    return selectedItems;
+    return false;
 }
 
-// Function to update modal with selected items
-function updateModalWithSelectedItems(selectedItems) {
+// Function to update item affordability display
+function updateItemAffordability() {
     const itemOptions = document.querySelectorAll('.item-option');
+    const regionOptions = document.querySelectorAll('.region-option');
     
-    // Hide all items first
     itemOptions.forEach(option => {
-        option.style.display = 'none';
+        const itemType = option.getAttribute('data-item');
+        const price = parseInt(option.getAttribute('data-price'));
+        
+        if (canAffordItem(itemType)) {
+            option.classList.remove('unaffordable');
+        } else {
+            option.classList.add('unaffordable');
+        }
     });
     
-    // Show only selected items
-    selectedItems.forEach(itemType => {
-        const option = document.querySelector(`[data-item="${itemType}"]`);
-        if (option) {
-            option.style.display = 'flex';
+    regionOptions.forEach(option => {
+        const itemType = option.getAttribute('data-item');
+        const price = parseInt(option.getAttribute('data-price'));
+        
+        if (canAffordItem(itemType)) {
+            option.classList.remove('unaffordable');
+        } else {
+            option.classList.add('unaffordable');
         }
     });
 }
 
-
-// Function to enter item placement mode
-function enterItemPlacementMode(itemType) {
-    isPlacingItem = true;
-    currentItemMode = itemType;
+// Function to show all available items in the modal
+function showAllItemsInModal() {
+    const itemOptions = document.querySelectorAll('.item-option');
     
-    // Ensure mouse is considered on canvas when entering placement mode
-    // This prevents flickering of red circles when transitioning from modal
-    isMouseOnCanvas = true;
+    // Show all items - they're all available now
+    itemOptions.forEach(option => {
+        option.style.display = 'flex';
+    });
     
-    // Update cursor
-    canvas.style.cursor = 'none';
-    
-    // Update drop button state to reflect placement mode
-    updateDropButtonState();
-    
-    // Force a render update to immediately show the placement circles
-    // This ensures smooth transition from modal to placement mode
-    render();
+    // Update affordability display
+    updateItemAffordability();
 }
 
-// Function to exit item placement mode
-function exitItemPlacementMode() {
-    isPlacingItem = false;
-    currentItemMode = null;
-    canvas.style.cursor = 'pointer';
-    
-    // Reset mouse state when exiting placement mode
-    // This ensures proper state management for future interactions
-    isMouseOnCanvas = false;
-    
-    // Re-enable drop button
-    updateDropButtonState();
-}
+
+
 
 // Function to exit item mode
 function exitItemMode() {
     currentItemMode = null;
-    canvas.style.cursor = 'pointer';
+    canvas.style.cursor = 'crosshair';
     updateItemButtonStates();
     
     // Also exit placement mode if we're in it
@@ -2452,90 +2892,7 @@ function markAllItemsAsUsed() {
     items.multiplier.used = true;
 }
 
-// Function to place a cash region item
-function placeCashRegionItem(x, y) {
-    if (!items.cash.available) return false;
-    
-    // Check placement info
-    const placementInfo = checkRegionPlacement(x, y, 'cash');
-    
-    if (!placementInfo.canPlace) {
-        return false; // Cannot place here
-    }
-    
-    if (placementInfo.levelUpTarget) {
-        // Level up existing region
-        placementInfo.levelUpTarget.level++;
-    } else {
-        // Create a new cash region
-        const region = createCashRegion(x, y, regionItemRotation);
-    }
-    
-    // Mark ALL items as used for this turn
-    markAllItemsAsUsed();
-    
-    // Exit item mode
-    exitItemMode();
-    
-    return true;
-}
-
-// Function to place a multiplier region item
-function placeMultiplierRegionItem(x, y) {
-    if (!items.multiplier.available) return false;
-    
-    // Check placement info
-    const placementInfo = checkRegionPlacement(x, y, 'multiplier');
-    
-    if (!placementInfo.canPlace) {
-        return false; // Cannot place here
-    }
-    
-    if (placementInfo.levelUpTarget) {
-        // Level up existing region
-        placementInfo.levelUpTarget.level++;
-        placementInfo.levelUpTarget.factor = placementInfo.levelUpTarget.level + 1; // factor = level + 1
-    } else {
-        // Create a new multiplier region with x2 multiplier
-        const region = createMultiplierRegion(x, y, 2, regionItemRotation);
-    }
-    
-    // Mark ALL items as used for this turn
-    markAllItemsAsUsed();
-    
-    // Exit item mode
-    exitItemMode();
-    
-    return true;
-}
-
-// Function to place a level up region item
-function placeLevelUpRegionItem(x, y) {
-    if (!items.levelUp.available) return false;
-    
-    // Check placement info
-    const placementInfo = checkRegionPlacement(x, y, 'levelUp');
-    
-    if (!placementInfo.canPlace) {
-        return false; // Cannot place here
-    }
-    
-    if (placementInfo.levelUpTarget) {
-        // Level up existing region
-        placementInfo.levelUpTarget.level++;
-    } else {
-        // Create a new level up region
-        const region = createLevelUpRegion(x, y, regionItemRotation);
-    }
-    
-    // Mark ALL items as used for this turn
-    markAllItemsAsUsed();
-    
-    // Exit item mode
-    exitItemMode();
-    
-    return true;
-}
+// Region placement functions removed - regions now upgrade existing ones automatically
 
 // Function to use ball level upgrade item
 function useBallLevelItem() {
@@ -2613,9 +2970,21 @@ function updateDropButtonText() {
 // Function to update current ball level display
 function updateCurrentBallLevelDisplay() {
     const color = getBallColorForLevel(currentBallLevel);
-    currentBallLevelValue.textContent = `Level: ${currentBallLevel}`;
+    currentBallLevelValue.textContent = `Ball Level: ${currentBallLevel}`;
     currentBallLevelValue.style.color = color;
     currentBallLevelValue.style.fontWeight = 'bold';
+}
+
+// Function to update money display and affordability
+function updateMoneyDisplay() {
+    moneyValue.textContent = '💵 $' + numberFormatShort(wallet.money);
+    diamondsValue.textContent = '💎 ' + numberFormatShort(wallet.diamonds);
+    keysValue.textContent = '🗝️ ' + numberFormatShort(wallet.keys);
+    
+    // Update affordability if modal is open
+    if (isModalOpen) {
+        updateItemAffordability();
+    }
 }
 
 // Function to update display values
@@ -2626,9 +2995,7 @@ function updateDisplayValues() {
     frictionValue.textContent = physicsSettings.friction.toFixed(1);
     densityValue.textContent = physicsSettings.density.toFixed(3);
     // Ball inventory display removed
-    moneyValue.textContent = '💵 $' + numberFormatShort(wallet.money);
-    diamondsValue.textContent = '💎 ' + numberFormatShort(wallet.diamonds);
-    keysValue.textContent = '🗝️ ' + numberFormatShort(wallet.keys);
+    updateMoneyDisplay();
     spawnDelayValue.textContent = physicsSettings.spawnDelay;
     multiplierValue.textContent = multiplierFactor;
     updateBallLevelDisplay();
@@ -2672,9 +3039,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Modal functionality
     const itemOptions = document.querySelectorAll('.item-option');
+    const regionOptions = document.querySelectorAll('.region-option');
     
     // Add click listeners to all item options
     itemOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            const itemType = this.getAttribute('data-item');
+            selectItemFromModal(itemType);
+        });
+    });
+    
+    // Add click listeners to all region options
+    regionOptions.forEach(option => {
         option.addEventListener('click', function() {
             const itemType = this.getAttribute('data-item');
             selectItemFromModal(itemType);
@@ -2796,8 +3172,12 @@ dropTestButton.addEventListener('click', () => {
         return;
     }
     
-    // Don't allow dropping test balls if there are already test balls on the canvas
-    if (hasTestBallsOnCanvas()) {
+    const hasTestBalls = hasTestBallsOnCanvas();
+    
+    // If we have test balls, end the test
+    if (hasTestBalls) {
+        // Clear only test balls (don't affect turn system)
+        endTest();
         return;
     }
     
@@ -2813,7 +3193,7 @@ wallToolButton.addEventListener('click', () => {
         wallToolButton.textContent = 'Wall Drawing Tool';
         wallToolButton.style.background = '#ffa502';
         wallControls.style.display = 'none';
-        canvas.style.cursor = 'pointer';
+        canvas.style.cursor = 'crosshair';
     } else {
         // Exit all other modes first
         exitAllModes();
@@ -2835,7 +3215,7 @@ multiplierToolButton.addEventListener('click', () => {
         multiplierToolButton.textContent = 'Multiplier Region Tool';
         multiplierToolButton.style.background = '#9c88ff';
         multiplierFactorDisplay.style.display = 'none';
-        canvas.style.cursor = 'pointer';
+        canvas.style.cursor = 'crosshair';
     } else {
         // Exit all other modes first
         exitAllModes();
@@ -2856,7 +3236,7 @@ removerToolButton.addEventListener('click', () => {
         removerMode = false;
         removerToolButton.textContent = 'Remover Tool';
         removerToolButton.style.background = '#ff4757';
-        canvas.style.cursor = 'pointer';
+        canvas.style.cursor = 'crosshair';
     } else {
         // Exit all other modes first
         exitAllModes();
@@ -2876,7 +3256,7 @@ portalToolButton.addEventListener('click', () => {
         portalMode = false;
         portalToolButton.textContent = 'Portal Tool';
         portalToolButton.style.background = '#00b894';
-        canvas.style.cursor = 'pointer';
+        canvas.style.cursor = 'crosshair';
     } else {
         // Exit all other modes first
         exitAllModes();
@@ -2896,7 +3276,7 @@ cashToolButton.addEventListener('click', () => {
         cashMode = false;
         cashToolButton.textContent = 'Cash Region Tool';
         cashToolButton.style.background = '#2ed573';
-        canvas.style.cursor = 'pointer';
+        canvas.style.cursor = 'crosshair';
     } else {
         // Exit all other modes first
         exitAllModes();
@@ -2916,7 +3296,7 @@ levelUpToolButton.addEventListener('click', () => {
         levelUpMode = false;
         levelUpToolButton.textContent = 'Level Up Region Tool';
         levelUpToolButton.style.background = '#ff6b35';
-        canvas.style.cursor = 'pointer';
+        canvas.style.cursor = 'crosshair';
     } else {
         // Exit all other modes first
         exitAllModes();
@@ -2944,7 +3324,7 @@ multiplierSlider.addEventListener('input', (e) => {
 //     if (multiplierShopMode && selectedMultiplierFactor === 2) {
 //         // Toggle off if already in 2x multiplier mode
 //         multiplierShopMode = false;
-//         canvas.style.cursor = 'pointer';
+//         canvas.style.cursor = 'crosshair';
 //     } else {
 //         // Exit all other modes first
 //         exitAllModes();
@@ -2962,7 +3342,7 @@ multiplierSlider.addEventListener('input', (e) => {
 //     if (multiplierShopMode && selectedMultiplierFactor === 3) {
 //         // Toggle off if already in 3x multiplier mode
 //         multiplierShopMode = false;
-//         canvas.style.cursor = 'pointer';
+//         canvas.style.cursor = 'crosshair';
 //     } else {
 //         // Exit all other modes first
 //         exitAllModes();
@@ -3051,14 +3431,11 @@ canvas.addEventListener('mousedown', function(event) {
         // Place a hexagon wall item at the click point
         placeHexagonWallItem(x, y);
     } else if (currentItemMode === 'cash') {
-        // Place a cash region item at the click point
-        placeCashRegionItem(x, y);
+        // Region items now upgrade existing regions automatically - no click placement needed
     } else if (currentItemMode === 'multiplier') {
-        // Place a multiplier region item at the click point
-        placeMultiplierRegionItem(x, y);
+        // Region items now upgrade existing regions automatically - no click placement needed
     } else if (currentItemMode === 'levelUp') {
-        // Place a level up region item at the click point
-        placeLevelUpRegionItem(x, y);
+        // Region items now upgrade existing regions automatically - no click placement needed
     }
 });
 
@@ -3158,7 +3535,7 @@ canvas.addEventListener('mousemove', function(event) {
         
         // Check if hovering over a wall for potential dragging
         const wall = findWallAt(x, y);
-        canvas.style.cursor = wall ? 'grab' : 'pointer';
+        canvas.style.cursor = wall ? 'grab' : 'crosshair';
     }
     
     if (wallDrawingMode && isDrawingWall) {
@@ -3415,18 +3792,11 @@ function render() {
         const height = region.height || (region.y2 - region.y1);
         const rotation = region.rotation || 0;
         
-        // Check if this region is being leveled up (show upgraded version)
-        let isBeingLeveledUp = false;
-        if (currentItemMode === 'multiplier' && isMouseOnCanvas) {
-            const placementInfo = checkRegionPlacement(mouseX, mouseY, 'multiplier');
-            isBeingLeveledUp = placementInfo.levelUpTarget === region;
-        }
-        
         // Check if this region is being hovered over in remover mode
         const isHovered = removerMode && hoveredMultiplierRegion === region;
         
         // Draw the rotated region rectangle
-        if (isBeingLeveledUp) {
+        if (false) { // Level-up preview removed - regions now upgrade automatically
             // Show upgraded version with breathing effect
             const time = Date.now() * 0.005; // Slow breathing
             const scale = 1 + Math.sin(time) * 0.1; // 10% size variation
@@ -3516,7 +3886,7 @@ function render() {
         const isHovered = removerMode && hoveredCashRegion === region;
         
         // Draw the rotated region rectangle
-        if (isBeingLeveledUp) {
+        if (false) { // Level-up preview removed - regions now upgrade automatically
             // Show upgraded version with breathing effect
             const time = Date.now() * 0.005; // Slow breathing
             const scale = 1 + Math.sin(time) * 0.1; // 10% size variation
@@ -3607,7 +3977,7 @@ function render() {
         const isHovered = removerMode && hoveredLevelUpRegion === region;
         
         // Draw the rotated region rectangle
-        if (isBeingLeveledUp) {
+        if (false) { // Level-up preview removed - regions now upgrade automatically
             // Show upgraded version with breathing effect
             const time = Date.now() * 0.005; // Slow breathing
             const scale = 1 + Math.sin(time) * 0.1; // 10% size variation
@@ -3874,14 +4244,7 @@ function render() {
         ctx.setLineDash([]); // Reset line dash
     }
     
-    // Draw placement restriction circles if in any region item mode
-    if (currentItemMode === 'multiplier' && isMouseOnCanvas) {
-        drawPlacementRestrictionCircles('multiplier');
-    } else if (currentItemMode === 'cash' && isMouseOnCanvas) {
-        drawPlacementRestrictionCircles('cash');
-    } else if (currentItemMode === 'levelUp' && isMouseOnCanvas) {
-        drawPlacementRestrictionCircles('levelUp');
-    }
+    // Region placement restriction circles removed - regions now upgrade existing ones
     
     // Draw multiplier region cursor preview if in placement mode and mouse is on canvas
     if (multiplierPlacementMode && isMouseOnCanvas) {
@@ -3928,182 +4291,11 @@ function render() {
         ctx.fillText(`×${multiplierFactor}`, mouseX, mouseY);
     }
     
-    // Draw cash item preview if in cash item mode and mouse is on canvas
-    if (currentItemMode === 'cash' && isMouseOnCanvas) {
-        const width = REGION_CONFIG.cash.width;
-        const height = REGION_CONFIG.cash.height;
-        
-        // Check placement info
-        const placementInfo = checkRegionPlacement(mouseX, mouseY, 'cash');
-        
-        // Only show preview if NOT hovering over an existing region
-        if (!placementInfo.levelUpTarget) {
-            // Show normal preview for new placement
-            const previewX = mouseX - width / 2;
-            const previewY = mouseY - height / 2;
-            
-            ctx.save();
-            ctx.translate(previewX + width/2, previewY + height/2);
-            ctx.rotate(regionItemRotation);
-            ctx.translate(-width/2, -height/2);
-            
-            ctx.beginPath();
-            ctx.rect(0, 0, width, height);
-            
-            // Use different colors based on placement validity
-            if (placementInfo.canPlace) {
-                // Normal colors for new placement
-                ctx.fillStyle = REGION_CONFIG.cash.color;
-                ctx.strokeStyle = REGION_CONFIG.cash.borderColor;
-            } else {
-                // Red if cannot place
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                ctx.strokeStyle = '#ff0000';
-            }
-            
-            ctx.fill();
-            ctx.lineWidth = REGION_CONFIG.cash.lineWidth;
-            ctx.setLineDash(REGION_CONFIG.cash.dash);
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
-            ctx.restore();
-            
-            // Draw dollar bill emoji at center of preview (unrotated)
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            const displayText = '💵1'; // Default to level 1 for new placements
-            
-            // Draw black outline
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 3;
-            ctx.strokeText(displayText, previewX + width/2, previewY + height/2);
-            
-            // Draw emoji
-            ctx.fillStyle = '#e0e0e0';
-            ctx.fillText(displayText, previewX + width/2, previewY + height/2);
-        }
-        // When hovering over existing region, do NOTHING - no preview, no crosshair, nothing
-    }
+    // Cash item preview removed - regions now upgrade existing ones automatically
     
-    // Draw multiplier item preview if in multiplier item mode and mouse is on canvas
-    if (currentItemMode === 'multiplier' && isMouseOnCanvas) {
-        const width = REGION_CONFIG.multiplier.width;
-        const height = REGION_CONFIG.multiplier.height;
-        
-        // Check placement info
-        const placementInfo = checkRegionPlacement(mouseX, mouseY, 'multiplier');
-        
-        // Only show preview if NOT hovering over an existing region
-        if (!placementInfo.levelUpTarget) {
-            // Show normal preview for new placement
-            const previewX = mouseX - width / 2;
-            const previewY = mouseY - height / 2;
-            
-            ctx.save();
-            ctx.translate(previewX + width/2, previewY + height/2);
-            ctx.rotate(regionItemRotation);
-            ctx.translate(-width/2, -height/2);
-            
-            ctx.beginPath();
-            ctx.rect(0, 0, width, height);
-            
-            // Use different colors based on placement validity
-            if (placementInfo.canPlace) {
-                // Normal colors for new placement
-                ctx.fillStyle = REGION_CONFIG.multiplier.color;
-                ctx.strokeStyle = REGION_CONFIG.multiplier.borderColor;
-            } else {
-                // Red if cannot place
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                ctx.strokeStyle = '#ff0000';
-            }
-            
-            ctx.fill();
-            ctx.lineWidth = REGION_CONFIG.multiplier.lineWidth;
-            ctx.setLineDash(REGION_CONFIG.multiplier.dash);
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
-            ctx.restore();
-            
-            // Draw multiplier text at center of preview (unrotated)
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            const multiplierText = 'x2'; // Default for new placement
-            
-            // Draw black outline
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 3;
-            ctx.strokeText(multiplierText, previewX + width/2, previewY + height/2);
-            
-            // Draw text
-            ctx.fillStyle = '#e0e0e0';
-            ctx.fillText(multiplierText, previewX + width/2, previewY + height/2);
-        }
-        // When hovering over existing region, do NOTHING - no preview, no crosshair, nothing
-    }
+    // Multiplier item preview removed - regions now upgrade existing ones automatically
     
-    // Draw level up item preview if in level up item mode and mouse is on canvas
-    if (currentItemMode === 'levelUp' && isMouseOnCanvas) {
-        // Check placement info
-        const placementInfo = checkRegionPlacement(mouseX, mouseY, 'levelUp');
-        
-        // Only show preview if NOT hovering over an existing region
-        if (!placementInfo.levelUpTarget) {
-            const width = REGION_CONFIG.levelUp.width;
-            const height = REGION_CONFIG.levelUp.height;
-            
-            // Show normal preview for new placement
-            const previewX = mouseX - width / 2;
-            const previewY = mouseY - height / 2;
-            
-            ctx.save();
-            ctx.translate(previewX + width/2, previewY + height/2);
-            ctx.rotate(regionItemRotation);
-            ctx.translate(-width/2, -height/2);
-            
-            ctx.beginPath();
-            ctx.rect(0, 0, width, height);
-            
-            // Use different colors based on placement validity
-            if (placementInfo.canPlace) {
-                // Normal colors for new placement
-                ctx.fillStyle = REGION_CONFIG.levelUp.color;
-                ctx.strokeStyle = REGION_CONFIG.levelUp.borderColor;
-            } else {
-                // Red if cannot place
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                ctx.strokeStyle = '#ff0000';
-            }
-            
-            ctx.fill();
-            ctx.lineWidth = REGION_CONFIG.levelUp.lineWidth;
-            ctx.setLineDash(REGION_CONFIG.levelUp.dash);
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
-            ctx.restore();
-            
-            // Draw level up text at center of preview (unrotated)
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            const displayText = '+1'; // Default to level 1 for new placements
-            
-            // Draw black outline
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 3;
-            ctx.strokeText(displayText, previewX + width/2, previewY + height/2);
-            
-            // Draw text
-            ctx.fillStyle = '#e0e0e0';
-            ctx.fillText(displayText, previewX + width/2, previewY + height/2);
-        }
-        // When hovering over existing region, do NOTHING - no preview, no crosshair, nothing
-    }
+    // Level up item preview removed - regions now upgrade existing ones automatically
     
     // Draw portal region cursor preview if in portal mode and mouse is on canvas
     if (portalMode && isMouseOnCanvas) {
@@ -4206,6 +4398,9 @@ function render() {
     // Draw money animations
     moneyAnimations.forEach(animation => animation.draw(ctx));
     
+    // Draw dropping animations
+    droppingAnimations.forEach(animation => animation.draw(ctx));
+    
 }
 
 // Game loop
@@ -4227,6 +4422,16 @@ function gameLoop(currentTime) {
     
     // Update money animations
     moneyAnimations = moneyAnimations.filter(animation => animation.update());
+    
+    // Update dropping animations
+    droppingAnimations = droppingAnimations.filter(animation => {
+        const isComplete = animation.update();
+        if (isComplete) {
+            // Animation finished, create the actual item
+            createActualItem(animation);
+        }
+        return !isComplete;
+    });
     
     // Render
     render();
@@ -4486,7 +4691,13 @@ function generateRandomMultipliers() {
             // Check if position conflicts with portals
             const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
             
-            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithPortalRegions) {
+            // Check if position conflicts with cash regions
+            const conflictsWithCashRegionsCheck = conflictsWithCashRegions(x, y, minDistance);
+            
+            // Check if position conflicts with level up regions
+            const conflictsWithLevelUpRegionsCheck = conflictsWithLevelUpRegions(x, y, minDistance);
+            
+            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithPortalRegions || conflictsWithCashRegionsCheck || conflictsWithLevelUpRegionsCheck) {
                 continue; // Try again
             }
             
@@ -4512,6 +4723,280 @@ function generateRandomMultipliers() {
     console.log(`Generated ${multiplierRegions.length} random multipliers (1 in each of the 3 vertical regions)`);
 }
 
+// Function to generate 3 random cash regions at game start
+function generateRandomCashRegions() {
+    const numCashRegions = 3;
+    const canvasWidth = CANVAS_CONFIG.width;
+    const canvasHeight = CANVAS_CONFIG.height;
+    const margin = 50; // Margin from edges
+    const topSpawnArea = 150; // Reserve top 150px for ball spawning
+    const minDistance = 100; // Minimum distance between cash regions and walls/regions
+    
+    // Calculate the spawnable area (excluding top spawn area and bottom margin)
+    const spawnableHeight = canvasHeight - topSpawnArea - margin;
+    const regionHeight = spawnableHeight / 3; // Divide into 3 equal vertical regions
+    
+    // Define the three vertical regions
+    const regions = [
+        { // Top region
+            name: 'top',
+            y1: topSpawnArea,
+            y2: topSpawnArea + regionHeight
+        },
+        { // Middle region
+            name: 'middle', 
+            y1: topSpawnArea + regionHeight,
+            y2: topSpawnArea + 2 * regionHeight
+        },
+        { // Bottom region
+            name: 'bottom',
+            y1: topSpawnArea + 2 * regionHeight,
+            y2: canvasHeight - margin
+        }
+    ];
+    
+    // Get money region bounds (permanent bottom cash region)
+    const moneyRegionBounds = {
+        x1: canvasWidth * 0.25, // 25% from left edge
+        x2: canvasWidth * 0.75, // 75% from left edge  
+        y1: canvasHeight - 30, // Bottom of canvas
+        y2: canvasHeight // Bottom edge
+    };
+    
+    // Get all existing wall positions for collision checking
+    const existingWalls = [];
+    const bodies = Matter.Composite.allBodies(world);
+    for (const body of bodies) {
+        if (body.isStatic && body !== permanentBottomCashRegion?.body) {
+            existingWalls.push({
+                x: body.position.x,
+                y: body.position.y,
+                // Approximate size based on wall type (conservative estimate)
+                size: 100 // Use a conservative size for collision checking
+            });
+        }
+    }
+    
+    // Place exactly one cash region in each region
+    for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
+        const region = regions[regionIndex];
+        let attempts = 0;
+        let placed = false;
+        
+        while (!placed && attempts < 50) { // Max 50 attempts per cash region
+            attempts++;
+            
+            // Random position within the specific region bounds
+            const x = margin + Math.random() * (canvasWidth - 2 * margin);
+            const y = region.y1 + Math.random() * (region.y2 - region.y1);
+            
+            // Check if position conflicts with money region
+            const conflictsWithMoneyRegion = 
+                x >= moneyRegionBounds.x1 - minDistance &&
+                x <= moneyRegionBounds.x2 + minDistance &&
+                y >= moneyRegionBounds.y1 - minDistance &&
+                y <= moneyRegionBounds.y2 + minDistance;
+            
+            if (conflictsWithMoneyRegion) {
+                continue; // Try again
+            }
+            
+            // Check if position conflicts with existing walls
+            let conflictsWithWalls = false;
+            for (const existingWall of existingWalls) {
+                const distance = Math.sqrt(
+                    Math.pow(x - existingWall.x, 2) + Math.pow(y - existingWall.y, 2)
+                );
+                if (distance < minDistance) {
+                    conflictsWithWalls = true;
+                    break;
+                }
+            }
+            
+            // Check if position conflicts with existing multiplier regions
+            let conflictsWithMultipliers = false;
+            for (const existingMultiplier of multiplierRegions) {
+                const distance = Math.sqrt(
+                    Math.pow(x - existingMultiplier.x, 2) + Math.pow(y - existingMultiplier.y, 2)
+                );
+                if (distance < minDistance) {
+                    conflictsWithMultipliers = true;
+                    break;
+                }
+            }
+            
+            // Check if position conflicts with existing cash regions
+            const conflictsWithCashRegionsCheck = conflictsWithCashRegions(x, y, minDistance);
+            
+            // Check if position conflicts with level up regions
+            const conflictsWithLevelUpRegionsCheck = conflictsWithLevelUpRegions(x, y, minDistance);
+            
+            // Check if position conflicts with portals
+            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            
+            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithCashRegionsCheck || conflictsWithLevelUpRegionsCheck || conflictsWithPortalRegions) {
+                continue; // Try again
+            }
+            
+            // Create the cash region with horizontal orientation (no rotation)
+            const rotation = 0; // Horizontal orientation
+            const cashRegion = createCashRegion(x, y, rotation);
+            
+            // Add to existing walls list for future collision checking
+            existingWalls.push({
+                x: x,
+                y: y,
+                size: 100
+            });
+            
+            placed = true;
+        }
+        
+        if (!placed) {
+            console.log(`Failed to place cash region in ${region.name} region after 50 attempts`);
+        }
+    }
+    
+    console.log(`Generated ${cashRegions.length} random cash regions (1 in each of the 3 vertical regions)`);
+}
+
+// Function to generate 3 random level up regions at game start
+function generateRandomLevelUpRegions() {
+    const numLevelUpRegions = 3;
+    const canvasWidth = CANVAS_CONFIG.width;
+    const canvasHeight = CANVAS_CONFIG.height;
+    const margin = 50; // Margin from edges
+    const topSpawnArea = 150; // Reserve top 150px for ball spawning
+    const minDistance = 100; // Minimum distance between level up regions and walls/regions
+    
+    // Calculate the spawnable area (excluding top spawn area and bottom margin)
+    const spawnableHeight = canvasHeight - topSpawnArea - margin;
+    const regionHeight = spawnableHeight / 3; // Divide into 3 equal vertical regions
+    
+    // Define the three vertical regions
+    const regions = [
+        { // Top region
+            name: 'top',
+            y1: topSpawnArea,
+            y2: topSpawnArea + regionHeight
+        },
+        { // Middle region
+            name: 'middle', 
+            y1: topSpawnArea + regionHeight,
+            y2: topSpawnArea + 2 * regionHeight
+        },
+        { // Bottom region
+            name: 'bottom',
+            y1: topSpawnArea + 2 * regionHeight,
+            y2: canvasHeight - margin
+        }
+    ];
+    
+    // Get money region bounds (permanent bottom cash region)
+    const moneyRegionBounds = {
+        x1: canvasWidth * 0.25, // 25% from left edge
+        x2: canvasWidth * 0.75, // 75% from left edge  
+        y1: canvasHeight - 30, // Bottom of canvas
+        y2: canvasHeight // Bottom edge
+    };
+    
+    // Get all existing wall positions for collision checking
+    const existingWalls = [];
+    const bodies = Matter.Composite.allBodies(world);
+    for (const body of bodies) {
+        if (body.isStatic && body !== permanentBottomCashRegion?.body) {
+            existingWalls.push({
+                x: body.position.x,
+                y: body.position.y,
+                // Approximate size based on wall type (conservative estimate)
+                size: 100 // Use a conservative size for collision checking
+            });
+        }
+    }
+    
+    // Place exactly one level up region in each region
+    for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
+        const region = regions[regionIndex];
+        let attempts = 0;
+        let placed = false;
+        
+        while (!placed && attempts < 50) { // Max 50 attempts per level up region
+            attempts++;
+            
+            // Random position within the specific region bounds
+            const x = margin + Math.random() * (canvasWidth - 2 * margin);
+            const y = region.y1 + Math.random() * (region.y2 - region.y1);
+            
+            // Check if position conflicts with money region
+            const conflictsWithMoneyRegion = 
+                x >= moneyRegionBounds.x1 - minDistance &&
+                x <= moneyRegionBounds.x2 + minDistance &&
+                y >= moneyRegionBounds.y1 - minDistance &&
+                y <= moneyRegionBounds.y2 + minDistance;
+            
+            if (conflictsWithMoneyRegion) {
+                continue; // Try again
+            }
+            
+            // Check if position conflicts with existing walls
+            let conflictsWithWalls = false;
+            for (const existingWall of existingWalls) {
+                const distance = Math.sqrt(
+                    Math.pow(x - existingWall.x, 2) + Math.pow(y - existingWall.y, 2)
+                );
+                if (distance < minDistance) {
+                    conflictsWithWalls = true;
+                    break;
+                }
+            }
+            
+            // Check if position conflicts with existing multiplier regions
+            let conflictsWithMultipliers = false;
+            for (const existingMultiplier of multiplierRegions) {
+                const distance = Math.sqrt(
+                    Math.pow(x - existingMultiplier.x, 2) + Math.pow(y - existingMultiplier.y, 2)
+                );
+                if (distance < minDistance) {
+                    conflictsWithMultipliers = true;
+                    break;
+                }
+            }
+            
+            // Check if position conflicts with existing cash regions
+            const conflictsWithCashRegionsCheck = conflictsWithCashRegions(x, y, minDistance);
+            
+            // Check if position conflicts with existing level up regions
+            const conflictsWithLevelUpRegionsCheck = conflictsWithLevelUpRegions(x, y, minDistance);
+            
+            // Check if position conflicts with portals
+            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            
+            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithCashRegionsCheck || conflictsWithLevelUpRegionsCheck || conflictsWithPortalRegions) {
+                continue; // Try again
+            }
+            
+            // Create the level up region with horizontal orientation (no rotation)
+            const rotation = 0; // Horizontal orientation
+            const levelUpRegion = createLevelUpRegion(x, y, rotation);
+            
+            // Add to existing walls list for future collision checking
+            existingWalls.push({
+                x: x,
+                y: y,
+                size: 100
+            });
+            
+            placed = true;
+        }
+        
+        if (!placed) {
+            console.log(`Failed to place level up region in ${region.name} region after 50 attempts`);
+        }
+    }
+    
+    console.log(`Generated ${levelUpRegions.length} random level up regions (1 in each of the 3 vertical regions)`);
+}
+
 // Initialize drop 10 button state
 updateDropButtonState();
 updateDropTestButtonState();
@@ -4523,6 +5008,32 @@ function conflictsWithPortals(x, y, minDistance = 100) {
         const portalCenterY = (portal.y1 + portal.y2) / 2;
         const distance = Math.sqrt(
             Math.pow(x - portalCenterX, 2) + Math.pow(y - portalCenterY, 2)
+        );
+        if (distance < minDistance) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Helper function to check if a position conflicts with any cash regions
+function conflictsWithCashRegions(x, y, minDistance = 100) {
+    for (const cashRegion of cashRegions) {
+        const distance = Math.sqrt(
+            Math.pow(x - cashRegion.x, 2) + Math.pow(y - cashRegion.y, 2)
+        );
+        if (distance < minDistance) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Helper function to check if a position conflicts with any level up regions
+function conflictsWithLevelUpRegions(x, y, minDistance = 100) {
+    for (const levelUpRegion of levelUpRegions) {
+        const distance = Math.sqrt(
+            Math.pow(x - levelUpRegion.x, 2) + Math.pow(y - levelUpRegion.y, 2)
         );
         if (distance < minDistance) {
             return true;
@@ -4581,6 +5092,12 @@ generateRandomWalls();
 
 // Generate random multipliers at game start (THIRD - avoids portals and walls)
 generateRandomMultipliers();
+
+// Generate random cash regions at game start (FOURTH - avoids portals, walls, and multipliers)
+generateRandomCashRegions();
+
+// Generate random level up regions at game start (FIFTH - avoids portals, walls, multipliers, and cash regions)
+generateRandomLevelUpRegions();
 
 // Calculate initial spawn position for turn 1
 calculateSpawnPosition();
