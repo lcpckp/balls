@@ -3379,8 +3379,13 @@ canvas.addEventListener('mousedown', function(event) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
-    // Check if clicking on a wall for dragging (only when not in any tool mode)
+    // Check if clicking on a wall for dragging (only when not in any tool mode and no balls are active)
     if (!removerMode && !wallDrawingMode && !multiplierPlacementMode && !portalMode && !cashMode && !levelUpMode && !currentItemMode) {
+        // Don't allow wall dragging if there are any balls (test or regular) on the canvas
+        if (hasBallsOnCanvas()) {
+            return;
+        }
+        
         const wall = findWallAt(x, y);
         if (wall) {
             // Start dragging the wall
