@@ -397,6 +397,11 @@ let testBallMaxLevel = 1; // Track highest level achieved by test balls
 let hadTestBallsInPreviousState = false;
 let testBallTimeouts = []; // Track timeout IDs for test ball drops
 
+// First test ball path tracking
+let firstTestBall = null; // Reference to the first test ball
+let firstTestBallPath = []; // Array to store path positions {x, y}
+let skipPathRecording = false; // Flag to skip path recording during portal teleportation
+
 // Stuck ball detection state
 let lastBallDeletionTime = 0;
 let stuckThreshold = 5000; // 5 seconds in milliseconds (kept for fallback)
@@ -785,7 +790,8 @@ function createActualItem(animation) {
                 createLevelUpZone(endX, endY, itemData.rotation);
                 break;
             case 'antiGravity':
-                createAntiGravityZone(endX, endY, itemData.rotation);
+                // Anti-gravity zones always use 0 rotation (locked)
+                createAntiGravityZone(endX, endY, 0);
                 break;
         }
         
@@ -1117,6 +1123,11 @@ function dropBalls(count) {
         currentSpawnX = spawnStartX + Math.random() * (spawnEndX - spawnStartX);
     }
     
+    // Clear first test ball tracking when doing a real drop
+    firstTestBall = null;
+    firstTestBallPath = [];
+    skipPathRecording = false;
+    
     // Drop balls from the pre-calculated position with spawn delay
     for (let i = 0; i < count; i++) {
         setTimeout(() => {
@@ -1156,10 +1167,20 @@ function dropTestBalls() {
     testBallTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
     testBallTimeouts = [];
     
+    // Reset first test ball tracking
+    firstTestBall = null;
+    firstTestBallPath = [];
+    skipPathRecording = false;
+    
     // Drop test balls from the pre-calculated position with spawn delay
     for (let i = 0; i < currentBallCount; i++) {
         const timeoutId = setTimeout(() => {
-            createCircle(currentSpawnX, spawnY, true, 1); // Test balls are always level 1
+            const ball = createCircle(currentSpawnX, spawnY, true, 1); // Test balls are always level 1
+            // Mark the first test ball
+            if (i === 0) {
+                firstTestBall = ball;
+                ball.isFirstTestBall = true;
+            }
         }, i * physicsSettings.spawnDelay);
         testBallTimeouts.push(timeoutId);
     }
@@ -1847,10 +1868,11 @@ function createAntiGravityZone(centerX, centerY, rotation = 0) {
     const height = ZONE_CONFIG.antiGravity.height;
     
     // Create Matter.js body for collision detection
+    // Rotation is locked at 0 for anti-gravity zones
     const body = Bodies.rectangle(centerX, centerY, width, height, {
         isStatic: true,
         isSensor: true, // Sensor bodies don't have physical collision response
-        angle: rotation, // Apply rotation to the body
+        angle: 0, // Anti-gravity zones are always locked at 0 rotation
         render: {
             visible: false // We'll draw it manually in the render function
         }
@@ -1866,7 +1888,7 @@ function createAntiGravityZone(centerX, centerY, rotation = 0) {
         centerY: centerY,
         width: width,
         height: height,
-        rotation: rotation,
+        rotation: 0, // Anti-gravity zones are always locked at 0 rotation
         level: 1, // Start at level 1
         id: Date.now() + Math.random(), // Unique ID for tracking
         body: body // Reference to Matter.js body
@@ -2233,6 +2255,11 @@ function clearAllObjects() {
     
     // Reset test ball tracking state
     hadTestBallsInPreviousState = false;
+    
+    // Clear first test ball tracking
+    firstTestBall = null;
+    firstTestBallPath = [];
+    skipPathRecording = false;
 }
 
 // Function to check if any balls are currently on the canvas
@@ -2292,6 +2319,10 @@ function endTest() {
     // Reset test ball tracking state (but keep test results displayed)
     hadTestBallsInPreviousState = false;
     
+    // Clear first test ball reference (but keep the path visible)
+    firstTestBall = null;
+    // Don't clear firstTestBallPath or skipPathRecording - keep the line visible until next test/drop
+    
     // Update button state after a small delay to ensure Matter.js has processed removals
     setTimeout(() => {
         updateDropButtonState();
@@ -2338,6 +2369,11 @@ function forceClearBalls() {
     
     // Reset test ball tracking state
     hadTestBallsInPreviousState = false;
+    
+    // Clear first test ball tracking
+    firstTestBall = null;
+    firstTestBallPath = [];
+    skipPathRecording = false;
     
     // Update button state after a small delay to ensure Matter.js has processed removals
     setTimeout(() => {
@@ -2462,6 +2498,10 @@ function checkForFallenBalls() {
     
     // Remove fallen balls (no longer gives money - handled by cash zone)
     fallenBalls.forEach(ball => {
+        // Check if this is the first test ball before removing
+        if (ball === firstTestBall) {
+            firstTestBall = null;
+        }
         World.remove(world, ball);
         objectCount--;
     });
@@ -2599,6 +2639,11 @@ function handlePortalCollision(ball, zone) {
         const orangePortal = portalZones.find(p => p.color === 'orange');
         
         if (orangePortal) {
+            // If this is the first test ball, skip path recording during teleportation
+            if (ball === firstTestBall) {
+                skipPathRecording = true;
+            }
+            
             // Calculate the center of the orange portal
             const orangeCenterX = (orangePortal.x1 + orangePortal.x2) / 2;
             const orangeCenterY = (orangePortal.y1 + orangePortal.y2) / 2;
@@ -3989,8 +4034,8 @@ function upgradeMaxDebug() {
     // 5. Create 1 anti-gravity zone at a random position
     const agX = margin + Math.random() * (canvasWidth - 2 * margin);
     const agY = margin + Math.random() * (canvasHeight - 2 * margin);
-    const agRotation = Math.random() * Math.PI * 2;
-    createAntiGravityZone(agX, agY, agRotation);
+    // Anti-gravity zones are always created with 0 rotation (locked)
+    createAntiGravityZone(agX, agY, 0);
     console.log(`Created anti-gravity zone at (${agX.toFixed(1)}, ${agY.toFixed(1)})`);
     
     // 6. Grant all dragging permissions
@@ -5059,30 +5104,8 @@ canvas.addEventListener('wheel', function(event) {
         return;
     }
     
-    // Handle wheel events when dragging an anti-gravity zone
-    if (isDraggingAntiGravityZone && draggedAntiGravityZone) {
-        event.preventDefault();
-        
-        // Adjust rotation based on wheel direction
-        const rotationStep = 0.1; // radians (about 5.7 degrees)
-        let newAngle = draggedAntiGravityZone.rotation;
-        
-        if (event.deltaY < 0) {
-            // Scroll up - increase rotation
-            newAngle += rotationStep;
-        } else {
-            // Scroll down - decrease rotation
-            newAngle -= rotationStep;
-        }
-        
-        // Keep rotation between 0 and 2π
-        newAngle = ((newAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
-        
-        // Update the zone's rotation
-        draggedAntiGravityZone.rotation = newAngle;
-        Matter.Body.setAngle(draggedAntiGravityZone.body, newAngle);
-        return;
-    }
+    // Anti-gravity zones cannot be rotated - rotation is locked at 0
+    // (Resizing and moving are still allowed)
     
     // Handle wheel events when dragging a multiplier zone
     if (isDraggingMultiplierZone && draggedMultiplierZone) {
@@ -5235,6 +5258,39 @@ function calculateFPS(currentTime) {
 function render() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw first test ball path
+    if (firstTestBallPath.length > 1) {
+        ctx.strokeStyle = 'rgba(255, 107, 107, 0.6)'; // Semi-transparent red matching test ball color
+        ctx.lineWidth = 2;
+        
+        // Draw path in segments to avoid connecting portal teleportation jumps
+        ctx.beginPath();
+        ctx.moveTo(firstTestBallPath[0].x, firstTestBallPath[0].y);
+        
+        for (let i = 1; i < firstTestBallPath.length; i++) {
+            const prev = firstTestBallPath[i - 1];
+            const curr = firstTestBallPath[i];
+            
+            // Calculate distance between consecutive points
+            const dx = curr.x - prev.x;
+            const dy = curr.y - prev.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // If distance is too large (likely a portal jump), start a new segment
+            if (distance > 100) {
+                // Finish current segment
+                ctx.stroke();
+                // Start new segment
+                ctx.beginPath();
+                ctx.moveTo(curr.x, curr.y);
+            } else {
+                ctx.lineTo(curr.x, curr.y);
+            }
+        }
+        
+        ctx.stroke();
+    }
     
     // Draw all bodies
     const bodies = Matter.Composite.allBodies(world);
@@ -6150,6 +6206,25 @@ function gameLoop(currentTime) {
         
         // Apply anti-gravity forces to balls in anti-gravity zones
         applyAntiGravityForces();
+        
+        // Track first test ball position
+        if (firstTestBall && firstTestBall.position) {
+            if (skipPathRecording) {
+                // Skip this frame (during portal teleportation) and resume on next frame
+                skipPathRecording = false;
+            } else {
+                // Add current position to path (sample every frame)
+                firstTestBallPath.push({
+                    x: firstTestBall.position.x,
+                    y: firstTestBall.position.y
+                });
+                
+                // Limit path length to prevent memory issues (keep last 5000 points)
+                if (firstTestBallPath.length > 5000) {
+                    firstTestBallPath.shift();
+                }
+            }
+        }
         
         // Check for balls that have fallen off the bottom of the screen
         checkForFallenBalls();
