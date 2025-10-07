@@ -286,8 +286,8 @@
             visibility: hidden;
             transition: all 0.3s ease;
             width: auto;
-            min-width: 400px;
-            max-width: 90vw;
+            min-width: 1000px;
+            max-width: 95vw;
             max-height: 90vh;
             overflow: hidden;
             border: 1px solid #404040;
@@ -308,12 +308,23 @@
         .modal-header {
             padding: 20px 30px;
             border-bottom: 1px solid #404040;
-            text-align: center;
             background: #3a3a3a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        
+        .modal-header-title {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
         }
         
         .modal-header h2 {
-            margin: 0 0 8px 0;
+            margin: 0;
             color: #e0e0e0;
             font-size: 24px;
         }
@@ -322,6 +333,42 @@
             margin: 0;
             color: #b0b0b0;
             font-size: 14px;
+        }
+        
+        .wallet-section,
+        .last-turn-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .wallet-display,
+        .last-turn-display {
+            background: #2a2a2a;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-weight: 700;
+            font-size: 18px;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .wallet-display {
+            color: #ffffff;
+        }
+        
+        .last-turn-display {
+            color: #2ed573;
+        }
+        
+        .wallet-label,
+        .last-turn-label {
+            color: #b0b0b0;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
         }
         
         .modal-body {
@@ -334,10 +381,10 @@
         
         .item-sections {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 24px;
             width: 100%;
-            max-width: 1000px;
+            max-width: 1200px;
         }
         
         .item-section {
@@ -387,6 +434,7 @@
             min-width: 120px;
             max-width: 150px;
             box-sizing: border-box;
+            position: relative;
         }
         
         .item-option:hover {
@@ -450,17 +498,27 @@
             word-wrap: break-word;
             hyphens: auto;
             margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .item-price {
-            font-size: 11px;
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            font-size: 10px;
             font-weight: 700;
-            color: #2ed573;
+            color: #ffffff;
             text-align: center;
-            background: rgba(46, 213, 115, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            border: 1px solid rgba(46, 213, 115, 0.3);
+            background: #2ed573;
+            padding: 3px 6px;
+            border-radius: 10px;
+            border: 2px solid #2d2d2d;
+            min-width: 20px;
+            z-index: 10;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
         }
         
         /* Unaffordable item styling */
@@ -479,9 +537,9 @@
         }
         
         .item-option.unaffordable .item-price {
-            color: #ff4757;
-            background: rgba(255, 71, 87, 0.1);
-            border-color: rgba(255, 71, 87, 0.3);
+            color: #ffffff;
+            background: #ff4757;
+            border-color: #2d2d2d;
         }
         
         /* Wall items styling */
@@ -494,19 +552,19 @@
             background: #4a4a4a;
         }
         
-        /* Region options styling - stacked vertically */
-        .region-options {
-            display: flex;
-            flex-direction: column;
+        /* Zone options styling - stacked vertically */
+        .zone-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
             width: 100%;
         }
         
-        .region-option {
+        .zone-option {
             display: flex;
             flex-direction: row;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
             padding: 12px 16px;
             border: 2px dashed;
             border-radius: 8px;
@@ -515,20 +573,21 @@
             transition: all 0.2s ease;
             text-align: left;
             width: 100%;
-            min-height: 60px;
+            height: 60px;
             box-sizing: border-box;
+            position: relative;
         }
         
-        .region-option:hover {
+        .zone-option:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
         
-        .region-option:active {
+        .zone-option:active {
             transform: translateY(0);
         }
         
-        .region-icon {
+        .zone-icon {
             font-size: 24px;
             margin-right: 12px;
             line-height: 1;
@@ -538,104 +597,185 @@
             min-width: 32px;
         }
         
-        .region-name {
+        .zone-name {
             font-size: 14px;
             font-weight: 600;
             color: #e0e0e0;
             line-height: 1.3;
             flex: 1;
             text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
-        .region-price {
-            font-size: 12px;
+        .zone-price {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            font-size: 10px;
             font-weight: 700;
-            color: #2ed573;
-            text-align: right;
-            background: rgba(46, 213, 115, 0.1);
-            padding: 4px 8px;
-            border-radius: 4px;
-            border: 1px solid rgba(46, 213, 115, 0.3);
-            min-width: 60px;
+            color: #ffffff;
+            text-align: center;
+            background: #2ed573;
+            padding: 3px 6px;
+            border-radius: 10px;
+            border: 2px solid #2d2d2d;
+            min-width: 20px;
+            z-index: 10;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
         }
         
-        /* Cash region styling */
-        .region-option[data-item="cash"] {
+        /* Cash zone styling */
+        .zone-option[data-item="cash"] {
             border-color: #2ed573;
             background: rgba(46, 213, 115, 0.1);
         }
         
-        .region-option[data-item="cash"]:hover {
+        .zone-option[data-item="cash"]:hover {
             border-color: #2ed573;
             background: rgba(46, 213, 115, 0.2);
         }
         
-        /* Multiplier region styling */
-        .region-option[data-item="multiplier"] {
+        /* Multiplier zone styling */
+        .zone-option[data-item="multiplier"] {
             border-color: #9c88ff;
             background: rgba(156, 136, 255, 0.1);
         }
         
-        .region-option[data-item="multiplier"]:hover {
+        .zone-option[data-item="multiplier"]:hover {
             border-color: #9c88ff;
             background: rgba(156, 136, 255, 0.2);
         }
         
-        .region-option[data-item="multiplier"] .region-price {
-            color: #9c88ff;
-            background: rgba(156, 136, 255, 0.1);
-            border-color: rgba(156, 136, 255, 0.3);
+        .zone-option[data-item="multiplier"] .zone-price {
+            color: #ffffff;
+            background: #9c88ff;
+            border-color: #2d2d2d;
         }
         
-        /* Level up region styling */
-        .region-option[data-item="levelUp"] {
+        /* Level up zone styling */
+        .zone-option[data-item="levelUp"] {
             border-color: #ff6b35;
             background: rgba(255, 107, 53, 0.1);
         }
         
-        .region-option[data-item="levelUp"]:hover {
+        .zone-option[data-item="levelUp"]:hover {
             border-color: #ff6b35;
             background: rgba(255, 107, 53, 0.2);
         }
         
-        .region-option[data-item="levelUp"] .region-price {
-            color: #ff6b35;
-            background: rgba(255, 107, 53, 0.1);
-            border-color: rgba(255, 107, 53, 0.3);
+        .zone-option[data-item="levelUp"] .zone-price {
+            color: #ffffff;
+            background: #ff6b35;
+            border-color: #2d2d2d;
         }
         
-        /* Unaffordable region styling */
-        .region-option.unaffordable {
+        
+        /* Move permission items styling - each move button matches its zone color */
+        .zone-option[data-item="moveCashZone"] {
+            border-color: #2ed573;
+            background: rgba(46, 213, 115, 0.1);
+        }
+        
+        .zone-option[data-item="moveCashZone"]:hover {
+            border-color: #2ed573;
+            background: rgba(46, 213, 115, 0.2);
+        }
+        
+        .zone-option[data-item="moveCashZone"] .zone-price {
+            color: #ffffff;
+            background: #2ed573;
+            border-color: #2d2d2d;
+        }
+        
+        .zone-option[data-item="moveLevelUpZone"] {
+            border-color: #ff6b35;
+            background: rgba(255, 107, 53, 0.1);
+        }
+        
+        .zone-option[data-item="moveLevelUpZone"]:hover {
+            border-color: #ff6b35;
+            background: rgba(255, 107, 53, 0.2);
+        }
+        
+        .zone-option[data-item="moveLevelUpZone"] .zone-price {
+            color: #ffffff;
+            background: #ff6b35;
+            border-color: #2d2d2d;
+        }
+        
+        .zone-option[data-item="moveMultiplierZone"] {
+            border-color: #9c88ff;
+            background: rgba(156, 136, 255, 0.1);
+        }
+        
+        .zone-option[data-item="moveMultiplierZone"]:hover {
+            border-color: #9c88ff;
+            background: rgba(156, 136, 255, 0.2);
+        }
+        
+        .zone-option[data-item="moveMultiplierZone"] .zone-price {
+            color: #ffffff;
+            background: #9c88ff;
+            border-color: #2d2d2d;
+        }
+        
+        .zone-option[data-item="movePortalIn"] {
+            border-color: #007bff;
+            background: rgba(0, 123, 255, 0.1);
+        }
+        
+        .zone-option[data-item="movePortalIn"]:hover {
+            border-color: #007bff;
+            background: rgba(0, 123, 255, 0.2);
+        }
+        
+        .zone-option[data-item="movePortalIn"] .zone-price {
+            color: #ffffff;
+            background: #007bff;
+            border-color: #2d2d2d;
+        }
+        
+        .zone-option[data-item="movePortalOut"] {
+            border-color: #ffa500;
+            background: rgba(255, 165, 0, 0.1);
+        }
+        
+        .zone-option[data-item="movePortalOut"]:hover {
+            border-color: #ffa500;
+            background: rgba(255, 165, 0, 0.2);
+        }
+        
+        .zone-option[data-item="movePortalOut"] .zone-price {
+            color: #ffffff;
+            background: #ffa500;
+            border-color: #2d2d2d;
+        }
+        
+        /* Unaffordable zone styling */
+        .zone-option.unaffordable {
             opacity: 0.5;
             cursor: not-allowed;
             border-color: #666;
             background: rgba(0, 0, 0, 0.1);
         }
         
-        .region-option.unaffordable:hover {
+        .zone-option.unaffordable:hover {
             transform: none;
             box-shadow: none;
             border-color: #666;
             background: rgba(0, 0, 0, 0.1);
         }
         
-        .region-option.unaffordable .region-price {
-            color: #ff4757;
-            background: rgba(255, 71, 87, 0.1);
-            border-color: rgba(255, 71, 87, 0.3);
+        .zone-option.unaffordable .zone-price {
+            color: #ffffff;
+            background: #ff4757;
+            border-color: #2d2d2d;
         }
         
-        /* Level up abilities styling */
-        .item-option[data-item="ballLevel"],
-        .item-option[data-item="ballCount"] {
-            border-color: #ff6b6b;
-        }
-        
-        .item-option[data-item="ballLevel"]:hover,
-        .item-option[data-item="ballCount"]:hover {
-            border-color: #ff6b6b;
-            background: #4a2a2a;
-        }
+        /* Level up abilities styling - removed red outline to match wall buttons */
         
         /* Make ballLevel and ballCount buttons span full width */
         .item-option[data-item="ballLevel"],
@@ -645,11 +785,100 @@
             width: 100%;
         }
         
+        /* Hide Shop Button */
+        .hide-shop-button {
+            background: #4a4a4a;
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        
+        .hide-shop-button:hover {
+            background: #5a5a5a;
+            border-color: #666;
+            transform: translateY(-1px);
+        }
+        
+        .hide-shop-button:active {
+            transform: translateY(0);
+        }
+        
+        /* Hidden Shop State - transparent and blurred */
+        .item-modal.hidden-shop {
+            opacity: 0.3;
+            filter: blur(8px);
+            pointer-events: none;
+        }
+        
+        .modal-backdrop.shop-hidden {
+            background: transparent;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        
+        /* Shop hidden message */
+        .shop-hidden-message {
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(45, 45, 45, 0.95);
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 16px 32px;
+            color: #e0e0e0;
+            font-size: 18px;
+            font-weight: 600;
+            z-index: 2500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+        
+        .shop-hidden-message.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
         /* Responsive design for smaller screens */
         @media (max-width: 768px) {
             .item-modal {
-                min-width: 350px;
+                min-width: 500px;
                 max-width: 95vw;
+            }
+            
+            .modal-header {
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 15px 20px;
+            }
+            
+            .modal-header h2 {
+                font-size: 20px;
+            }
+            
+            .modal-subtitle {
+                font-size: 12px;
+            }
+            
+            .wallet-display,
+            .last-turn-display {
+                font-size: 16px;
+                padding: 10px 12px;
+                min-width: 70px;
+            }
+            
+            .hide-shop-button {
+                padding: 6px 12px;
+                font-size: 12px;
             }
             
             .item-sections {
@@ -663,11 +892,21 @@
                 gap: 10px;
             }
             
+            .zone-options {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            
             .item-option {
                 height: 90px;
                 min-width: 100px;
                 max-width: 130px;
                 padding: 10px 6px;
+            }
+            
+            .zone-option {
+                height: 50px;
+                padding: 10px 12px;
             }
             
             .item-icon {
@@ -677,6 +916,18 @@
             
             .item-name {
                 font-size: 11px;
+            }
+            
+            .zone-name {
+                font-size: 12px;
+            }
+            
+            .item-price,
+            .zone-price {
+                font-size: 9px;
+                padding: 2px 5px;
+                top: -5px;
+                right: -5px;
             }
             
             .modal-body {
@@ -690,8 +941,37 @@
         
         @media (max-width: 480px) {
             .item-modal {
-                min-width: 320px;
+                min-width: 450px;
                 max-width: 98vw;
+            }
+            
+            .modal-header {
+                padding: 12px 15px;
+            }
+            
+            .modal-header h2 {
+                font-size: 18px;
+            }
+            
+            .modal-subtitle {
+                font-size: 11px;
+            }
+            
+            .wallet-display,
+            .last-turn-display {
+                font-size: 14px;
+                padding: 8px 10px;
+                min-width: 60px;
+            }
+            
+            .wallet-label,
+            .last-turn-label {
+                font-size: 10px;
+            }
+            
+            .hide-shop-button {
+                padding: 5px 10px;
+                font-size: 11px;
             }
             
             .item-sections {
@@ -703,11 +983,21 @@
                 gap: 8px;
             }
             
+            .zone-options {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+            
             .item-option {
                 height: 80px;
                 min-width: 90px;
                 max-width: 120px;
                 padding: 8px 4px;
+            }
+            
+            .zone-option {
+                height: 45px;
+                padding: 8px 10px;
             }
             
             .item-icon {
@@ -717,6 +1007,18 @@
             
             .item-name {
                 font-size: 10px;
+            }
+            
+            .zone-name {
+                font-size: 11px;
+            }
+            
+            .item-price,
+            .zone-price {
+                font-size: 8px;
+                padding: 2px 4px;
+                top: -4px;
+                right: -4px;
             }
             
             .section-header {
@@ -735,11 +1037,23 @@
     
     <!-- Item Selection Modal -->
     <div class="modal-backdrop" id="itemModalBackdrop"></div>
+    <div class="shop-hidden-message" id="shopHiddenMessage">Click to return to Shop</div>
     <div class="item-modal" id="itemModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Shop</h2>
-                <p class="modal-subtitle">Select an item to purchase</p>
+                <button class="hide-shop-button" id="hideShopButton">Hide Shop</button>
+                <div class="modal-header-title">
+                    <h2>Shop</h2>
+                    <p class="modal-subtitle">Select an item to purchase</p>
+                </div>
+                <div class="last-turn-section">
+                    <div class="last-turn-label">Last Turn</div>
+                    <div class="last-turn-display" id="lastTurnDisplay">$0</div>
+                </div>
+                <div class="wallet-section">
+                    <div class="wallet-label">Wallet</div>
+                    <div class="wallet-display" id="shopWalletDisplay">$0</div>
+                </div>
             </div>
             <div class="modal-body">
                 <div class="item-sections">
@@ -747,47 +1061,82 @@
                     <div class="item-section">
                         <h3 class="section-header">Walls</h3>
                         <div class="item-options">
-                            <button class="item-option" data-item="wallSquare" data-price="100">
-                                <div class="item-icon wall-icon-square"></div>
-                                <div class="item-name">Square Wall</div>
-                                <div class="item-price">$100</div>
-                            </button>
-                            <button class="item-option" data-item="wallCircle" data-price="5">
+                            <button class="item-option" data-item="wallCircle" data-price="25">
                                 <div class="item-icon wall-icon-circle"></div>
                                 <div class="item-name">Circle Wall</div>
-                                <div class="item-price">$5</div>
-                            </button>
-                            <button class="item-option" data-item="wallTriangle" data-price="100">
-                                <div class="item-icon wall-icon-triangle"></div>
-                                <div class="item-name">Triangle Wall</div>
-                                <div class="item-price">$100</div>
+                                <div class="item-price">$25</div>
                             </button>
                             <button class="item-option" data-item="wallHexagon" data-price="50">
                                 <div class="item-icon wall-icon-hexagon"></div>
                                 <div class="item-name">Hexagon Wall</div>
                                 <div class="item-price">$50</div>
                             </button>
+                            <button class="item-option" data-item="wallSquare" data-price="100">
+                                <div class="item-icon wall-icon-square"></div>
+                                <div class="item-name">Square Wall</div>
+                                <div class="item-price">$100</div>
+                            </button>
+                            <button class="item-option" data-item="wallTriangle" data-price="100">
+                                <div class="item-icon wall-icon-triangle"></div>
+                                <div class="item-name">Triangle Wall</div>
+                                <div class="item-price">$100</div>
+                            </button>
+                            <button class="item-option" data-item="antiGravity" data-price="1000">
+                                <div class="item-icon">↑↓</div>
+                                <div class="item-name">Anti-Gravity Zone</div>
+                                <div class="item-price">$1000</div>
+                            </button>
+                            <button class="item-option" data-item="resizeAntiGravity" data-price="1000">
+                                <div class="item-icon">↕️</div>
+                                <div class="item-name">Resize Anti-Gravity</div>
+                                <div class="item-price">$1000</div>
+                            </button>
                         </div>
                     </div>
                     
-                    <!-- Regions Section -->
+                    <!-- Zones Section -->
                     <div class="item-section">
-                        <h3 class="section-header">Regions</h3>
-                        <div class="region-options">
-                            <button class="region-option" data-item="cash" data-price="50">
-                                <div class="region-icon">💰</div>
-                                <div class="region-name">Cash Region</div>
-                                <div class="region-price">$50</div>
+                        <h3 class="section-header">Zones</h3>
+                        <div class="zone-options">
+                            <button class="zone-option" data-item="cash" data-price="100">
+                                <div class="zone-icon">💵</div>
+                                <div class="zone-name">Upgrade 💵1</div>
+                                <div class="zone-price">$100</div>
                             </button>
-                            <button class="region-option" data-item="multiplier" data-price="500">
-                                <div class="region-icon">⚡</div>
-                                <div class="region-name">Multiplier (x2)</div>
-                                <div class="region-price">$500</div>
+                            <button class="zone-option" data-item="moveCashZone" data-price="100">
+                                <div class="zone-icon">💵</div>
+                                <div class="zone-name">Move 💵1</div>
+                                <div class="zone-price">$100</div>
                             </button>
-                            <button class="region-option" data-item="levelUp" data-price="200">
-                                <div class="region-icon">⬆️</div>
-                                <div class="region-name">Level Up Region</div>
-                                <div class="region-price">$200</div>
+                            <button class="zone-option" data-item="levelUp" data-price="200">
+                                <div class="zone-icon">➕</div>
+                                <div class="zone-name">Upgrade +1</div>
+                                <div class="zone-price">$200</div>
+                            </button>
+                            <button class="zone-option" data-item="moveLevelUpZone" data-price="200">
+                                <div class="zone-icon">➕</div>
+                                <div class="zone-name">Move +1</div>
+                                <div class="zone-price">$200</div>
+                            </button>
+                            <button class="zone-option" data-item="multiplier" data-price="400">
+                                <div class="zone-icon">⚡</div>
+                                <div class="zone-name">Upgrade x2</div>
+                                <div class="zone-price">$400</div>
+                            </button>
+                            <button class="zone-option" data-item="moveMultiplierZone" data-price="400">
+                                <div class="zone-icon">⚡</div>
+                                <div class="zone-name">Move x2</div>
+                                <div class="zone-price">$400</div>
+                            </button>
+                            <button class="zone-option" data-item="movePortalIn" data-price="800">
+                                <div class="zone-icon">🔵</div>
+                                <div class="zone-name">Move IN Portal</div>
+                                <div class="zone-price">$800</div>
+                            </button>
+                            <button class="zone-option" data-item="movePortalOut" data-price="800">
+                                <div class="zone-icon">🟠</div>
+                                <div class="zone-name">Move OUT Portal</div>
+                                <div class="zone-price">$800</div>
                             </button>
                         </div>
                     </div>
@@ -797,7 +1146,7 @@
                         <h3 class="section-header">Upgrades</h3>
                         <div class="item-options">
                             <button class="item-option" data-item="ballLevel" data-price="1000">
-                                <div class="item-icon">⬆️</div>
+                                <div class="item-icon">🔥</div>
                                 <div class="item-name">Ball Level +1</div>
                                 <div class="item-price">$1000</div>
                             </button>
@@ -808,6 +1157,7 @@
                             </button>
                         </div>
                     </div>
+                    
                 </div>
             </div>
         </div>
@@ -871,7 +1221,7 @@
                         <!-- Wall controls removed - walls can now be any length -->
                     </div>
                     <div class="control-row">
-                        <button id="multiplierToolButton" style="width: 100%; padding: 10px; background: #9c88ff; color: white; border: none; border-radius: 4px; cursor: pointer;">Multiplier Region Tool</button>
+                        <button id="multiplierToolButton" style="width: 100%; padding: 10px; background: #9c88ff; color: white; border: none; border-radius: 4px; cursor: pointer;">Multiplier Zone Tool</button>
                     </div>
                     <div class="control-row" id="multiplierFactorDisplay" style="display: none;">
                         <label>Multiplier Factor:</label>
@@ -885,10 +1235,13 @@
                         <button id="portalToolButton" style="width: 100%; padding: 10px; background: #00b894; color: white; border: none; border-radius: 4px; cursor: pointer;">Portal Tool</button>
                     </div>
                     <div class="control-row">
-                        <button id="cashToolButton" style="width: 100%; padding: 10px; background: #2ed573; color: white; border: none; border-radius: 4px; cursor: pointer;">Cash Region Tool</button>
+                        <button id="cashToolButton" style="width: 100%; padding: 10px; background: #2ed573; color: white; border: none; border-radius: 4px; cursor: pointer;">Cash Zone Tool</button>
                     </div>
                     <div class="control-row">
-                        <button id="levelUpToolButton" style="width: 100%; padding: 10px; background: #ff6b35; color: white; border: none; border-radius: 4px; cursor: pointer;">Level Up Region Tool</button>
+                        <button id="levelUpToolButton" style="width: 100%; padding: 10px; background: #ff6b35; color: white; border: none; border-radius: 4px; cursor: pointer;">Level Up Zone Tool</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="antiGravityToolButton" style="width: 100%; padding: 10px; background: #ff00ff; color: white; border: none; border-radius: 4px; cursor: pointer;">Anti-Gravity Zone Tool</button>
                     </div>
                 </div>
                 
@@ -899,6 +1252,16 @@
                     </div>
                     <div class="control-row">
                         <button id="pauseButton" style="width: 100%; padding: 10px; background: #3742fa; color: white; border: none; border-radius: 4px; cursor: pointer;">Pause/Resume</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Debug</h3>
+                    <div class="control-row">
+                        <button id="debugMoneyButton" style="width: 100%; padding: 10px; background: #2ed573; color: white; border: none; border-radius: 4px; cursor: pointer;">Give $100,000</button>
+                    </div>
+                    <div class="control-row">
+                        <button id="upgradeMaxButton" style="width: 100%; padding: 10px; background: #ff6b35; color: white; border: none; border-radius: 4px; cursor: pointer;">Upgrade Max</button>
                     </div>
                 </div>
                 
@@ -945,9 +1308,9 @@
                 
                 
                 <div class="control-group" style="padding: 10px;">
-                    <h3 style="margin: 0 0 8px 0;">Test Balls</h3>
-                    <div class="control-row" style="justify-content: center; margin-bottom: 0;">
-                        <span class="value-display" id="testBallCount" style="font-size: 20px; font-weight: bold; color: #ff6b6b;">🔴 0</span>
+                    <h3 style="margin: 0 0 8px 0;">Test Results</h3>
+                    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+                        <span class="value-display" id="testBallCount" style="font-size: 18px; font-weight: bold; color: #ff6b6b;">🔴 0<br>💵 $0</span>
                     </div>
                 </div>
                 

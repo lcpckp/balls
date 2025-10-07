@@ -10,9 +10,9 @@ const Events = Matter.Events;
 // CENTRALIZED CONFIGURATION - Single Source of Truth
 // =============================================================================
 
-// Region placement configuration
-const REGION_PLACEMENT = {
-    minDistance: 75 // Minimum distance between region centers
+// Zone placement configuration
+const ZONE_PLACEMENT = {
+    minDistance: 75 // Minimum distance between zone centers
 };
 
 // Color palette - all colors used throughout the application
@@ -46,17 +46,19 @@ const COLORS = {
     ballPortal: '#000000',
     testBall: '#ff6b6b', // Red color for test balls
     
-    // Region Colors
-    multiplierRegion: 'rgba(156, 136, 255, 0.3)',
-    multiplierRegionBorder: '#9c88ff',
+    // Zone Colors
+    multiplierZone: 'rgba(156, 136, 255, 0.3)',
+    multiplierZoneBorder: '#9c88ff',
     portalBlue: 'rgba(0, 123, 255, 0.3)',
     portalBlueBorder: '#007bff',
     portalOrange: 'rgba(255, 165, 0, 0.3)',
     portalOrangeBorder: '#ffa500',
-    cashRegion: 'rgba(46, 213, 115, 0.3)',
-    cashRegionBorder: '#2ed573',
-    levelUpRegion: 'rgba(255, 107, 53, 0.3)',
-    levelUpRegionBorder: '#ff6b35',
+    cashZone: 'rgba(46, 213, 115, 0.3)',
+    cashZoneBorder: '#2ed573',
+    levelUpZone: 'rgba(255, 107, 53, 0.3)',
+    levelUpZoneBorder: '#ff6b35',
+    antiGravityZone: 'rgba(255, 0, 255, 0.3)',
+    antiGravityZoneBorder: '#ff00ff',
     
     // Hover/Selection Colors
     hover: '#ff4757',
@@ -133,13 +135,13 @@ const BALL_SPAWN_CONFIG = {
     fallenBuffer: 50
 };
 
-// Region configuration
-const REGION_CONFIG = {
+// Zone configuration
+const ZONE_CONFIG = {
     multiplier: {
         width: 90,
         height: 20,
-        color: COLORS.multiplierRegion,
-        borderColor: COLORS.multiplierRegionBorder,
+        color: COLORS.multiplierZone,
+        borderColor: COLORS.multiplierZoneBorder,
         dash: [5, 5],
         lineWidth: 2
     },
@@ -160,16 +162,24 @@ const REGION_CONFIG = {
     cash: {
         width: 90,
         height: 20,
-        color: COLORS.cashRegion,
-        borderColor: COLORS.cashRegionBorder,
+        color: COLORS.cashZone,
+        borderColor: COLORS.cashZoneBorder,
         dash: [5, 5],
         lineWidth: 2
     },
     levelUp: {
         width: 90,
         height: 20,
-        color: COLORS.levelUpRegion,
-        borderColor: COLORS.levelUpRegionBorder,
+        color: COLORS.levelUpZone,
+        borderColor: COLORS.levelUpZoneBorder,
+        dash: [5, 5],
+        lineWidth: 2
+    },
+    antiGravity: {
+        width: 90,
+        height: 200, // 10 times the height of other zones (20 * 10)
+        color: COLORS.antiGravityZone,
+        borderColor: COLORS.antiGravityZoneBorder,
         dash: [5, 5],
         lineWidth: 2
     }
@@ -185,7 +195,7 @@ const TOOL_MODES = {
         cursor: 'crosshair'
     },
     multiplier: {
-        name: 'Multiplier Region Tool',
+        name: 'Multiplier Zone Tool',
         activeName: 'Exit Multiplier Tool',
         color: COLORS.multiplierTool,
         activeColor: COLORS.multiplierToolActive,
@@ -206,14 +216,14 @@ const TOOL_MODES = {
         cursor: 'crosshair'
     },
     cash: {
-        name: 'Cash Region Tool',
+        name: 'Cash Zone Tool',
         activeName: 'Exit Cash Tool',
         color: COLORS.cashTool,
         activeColor: COLORS.cashToolActive,
         cursor: 'crosshair'
     },
     levelUp: {
-        name: 'Level Up Region Tool',
+        name: 'Level Up Zone Tool',
         activeName: 'Exit Level Up Tool',
         color: COLORS.levelUpTool,
         activeColor: COLORS.levelUpToolActive,
@@ -233,7 +243,7 @@ const BUTTON_STYLES = {
 const engine = Engine.create();
 const world = engine.world;
 
-// Add collision event listener for regions
+// Add collision event listener for zones
 Events.on(engine, 'collisionStart', function(event) {
     const pairs = event.pairs;
     
@@ -242,36 +252,72 @@ Events.on(engine, 'collisionStart', function(event) {
         const bodyA = pair.bodyA;
         const bodyB = pair.bodyB;
         
-        // Check if one is a ball and the other is a region
+        // Check if one is a ball and the other is a zone
         let ball = null;
-        let region = null;
+        let zone = null;
         
         if (bodyA.circleRadius && bodyB.isSensor) {
             ball = bodyA;
-            region = bodyB;
+            zone = bodyB;
         } else if (bodyB.circleRadius && bodyA.isSensor) {
             ball = bodyB;
-            region = bodyA;
+            zone = bodyA;
         }
         
-        if (ball && region) {
-            // Find which region this body belongs to
-            const multiplierRegion = multiplierRegions.find(r => r.body === region);
-            const portalRegion = portalRegions.find(r => r.body === region);
-            const cashRegion = cashRegions.find(r => r.body === region);
-            const levelUpRegion = levelUpRegions.find(r => r.body === region);
-            const permanentCashRegion = permanentBottomCashRegion && permanentBottomCashRegion.body === region;
+        if (ball && zone) {
+            // Find which zone this body belongs to
+            const multiplierZone = multiplierZones.find(r => r.body === zone);
+            const portalZone = portalZones.find(r => r.body === zone);
+            const cashZone = cashZones.find(r => r.body === zone);
+            const levelUpZone = levelUpZones.find(r => r.body === zone);
+            const antiGravityZone = antiGravityZones.find(r => r.body === zone);
+            const permanentCashZone = permanentBottomCashZone && permanentBottomCashZone.body === zone;
             
-            if (multiplierRegion) {
-                handleMultiplierCollision(ball, multiplierRegion);
-            } else if (portalRegion) {
-                handlePortalCollision(ball, portalRegion);
-            } else if (cashRegion) {
-                handleCashCollision(ball, cashRegion);
-            } else if (levelUpRegion) {
-                handleLevelUpCollision(ball, levelUpRegion);
-            } else if (permanentCashRegion) {
-                handleCashCollision(ball, permanentBottomCashRegion);
+            if (multiplierZone) {
+                handleMultiplierCollision(ball, multiplierZone);
+            } else if (portalZone) {
+                handlePortalCollision(ball, portalZone);
+            } else if (cashZone) {
+                handleCashCollision(ball, cashZone);
+            } else if (levelUpZone) {
+                handleLevelUpCollision(ball, levelUpZone);
+            } else if (antiGravityZone) {
+                handleAntiGravityCollision(ball, antiGravityZone);
+            } else if (permanentCashZone) {
+                handleCashCollision(ball, permanentBottomCashZone);
+            }
+        }
+    }
+});
+
+// Add collision end event listener for anti-gravity zones
+Events.on(engine, 'collisionEnd', function(event) {
+    const pairs = event.pairs;
+    
+    for (let i = 0; i < pairs.length; i++) {
+        const pair = pairs[i];
+        const bodyA = pair.bodyA;
+        const bodyB = pair.bodyB;
+        
+        // Check if one is a ball and the other is an anti-gravity zone
+        let ball = null;
+        let zone = null;
+        
+        if (bodyA.circleRadius && bodyB.isSensor) {
+            ball = bodyA;
+            zone = bodyB;
+        } else if (bodyB.circleRadius && bodyA.isSensor) {
+            ball = bodyB;
+            zone = bodyA;
+        }
+        
+        if (ball && zone) {
+            // Check if this is an anti-gravity zone
+            const antiGravityZone = antiGravityZones.find(r => r.body === zone);
+            
+            if (antiGravityZone && ball.inAntiGravityZone === antiGravityZone.id) {
+                // Ball has left the anti-gravity zone
+                ball.inAntiGravityZone = null;
             }
         }
     }
@@ -296,8 +342,8 @@ let physicsSettings = {
     friction: 0,
     density: 0.001,
     spawnDelay: 250,
-    multiplierRegionWidth: 60, // Fixed width for multiplier regions
-    multiplierRegionHeight: 20, // Fixed height for multiplier regions
+    multiplierZoneWidth: 60, // Fixed width for multiplier zones
+    multiplierZoneHeight: 20, // Fixed height for multiplier zones
     ballLevel: 1 // Default ball level
 };
 
@@ -334,6 +380,8 @@ let isDropped = true; // Track if tank bottom is dropped (starts as dropped/off 
 // Turn system state
 let currentTurn = 1;
 let isDropButtonEnabled = true;
+let lastTurnEarnings = 0; // Track earnings from the last turn
+let turnStartMoney = 0; // Track money at the start of a turn
 
 // Ball upgrade system state
 let currentBallLevel = 1; // Current level of balls dropped by drop button
@@ -344,6 +392,8 @@ let currentSpawnX = null; // X position where balls will spawn this turn
 
 // Test ball system
 let testBallCount = 0;
+let testMoneyEarned = 0; // Track money that would be earned during test
+let testBallMaxLevel = 1; // Track highest level achieved by test balls
 let hadTestBallsInPreviousState = false;
 let testBallTimeouts = []; // Track timeout IDs for test ball drops
 
@@ -373,25 +423,29 @@ let wallStartY = 0;
 let wallEndX = 0;
 let wallEndY = 0;
 
-// Multiplier region state
+// Multiplier zone state
 let multiplierPlacementMode = false;
 let multiplierFactor = 2;
-let multiplierRegions = []; // Array to store multiplier regions
+let multiplierZones = []; // Array to store multiplier zones
 
 // Remover tool state
 let removerMode = false;
 
 // Portal tool state
 let portalMode = false;
-let portalRegions = []; // Array to store portal regions
+let portalZones = []; // Array to store portal zones
 
 // Cash tool state
 let cashMode = false;
-let cashRegions = []; // Array to store cash regions
+let cashZones = []; // Array to store cash zones
 
 // Level up tool state
 let levelUpMode = false;
-let levelUpRegions = []; // Array to store level up regions
+let levelUpZones = []; // Array to store level up zones
+
+// Anti-gravity tool state
+let antiGravityMode = false;
+let antiGravityZones = []; // Array to store anti-gravity zones
 
 // Money animation system
 class MoneyAnimation {
@@ -430,7 +484,7 @@ class MoneyAnimation {
         
         // Draw the money text with a nice style
         ctx.font = 'bold 18px Arial';
-        ctx.fillStyle = '#2ed573'; // Green color to match cash regions
+        ctx.fillStyle = '#2ed573'; // Green color to match cash zones
         ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 2;
         
@@ -482,6 +536,8 @@ class DroppingAnimation {
                 return 0.3; // rgba(156, 136, 255, 0.3) - assuming similar to cash
             case 'levelUp':
                 return 0.3; // rgba(255, 107, 53, 0.3) - assuming similar to cash
+            case 'antiGravity':
+                return 0.3; // rgba(255, 0, 255, 0.3) - antigravity zone opacity
             case 'wallSquare':
             case 'wallCircle':
             case 'wallTriangle':
@@ -540,13 +596,16 @@ class DroppingAnimation {
                 this.drawHexagonWall(ctx, x, y, scale);
                 break;
             case 'cash':
-                this.drawCashRegion(ctx, x, y, scale);
+                this.drawCashZone(ctx, x, y, scale);
                 break;
             case 'multiplier':
-                this.drawMultiplierRegion(ctx, x, y, scale);
+                this.drawMultiplierZone(ctx, x, y, scale);
                 break;
             case 'levelUp':
-                this.drawLevelUpRegion(ctx, x, y, scale);
+                this.drawLevelUpZone(ctx, x, y, scale);
+                break;
+            case 'antiGravity':
+                this.drawAntiGravityZone(ctx, x, y, scale);
                 break;
         }
     }
@@ -592,11 +651,11 @@ class DroppingAnimation {
         ctx.fill();
     }
     
-    drawCashRegion(ctx, x, y, scale) {
+    drawCashZone(ctx, x, y, scale) {
         const width = 90 * scale;
         const height = 20 * scale;
         
-        // Use the exact same color as the final cash region
+        // Use the exact same color as the final cash zone
         ctx.fillStyle = 'rgba(46, 213, 115, 0.3)';
         ctx.fillRect(x - width/2, y - height/2, width, height);
         
@@ -612,14 +671,14 @@ class DroppingAnimation {
         ctx.font = `${12 * scale}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('💰', x, y);
+        ctx.fillText('💵', x, y);
     }
     
-    drawMultiplierRegion(ctx, x, y, scale) {
+    drawMultiplierZone(ctx, x, y, scale) {
         const width = 90 * scale;
         const height = 20 * scale;
         
-        // Use the exact same color as the final multiplier region
+        // Use the exact same color as the final multiplier zone
         ctx.fillStyle = 'rgba(156, 136, 255, 0.3)';
         ctx.fillRect(x - width/2, y - height/2, width, height);
         
@@ -638,11 +697,11 @@ class DroppingAnimation {
         ctx.fillText('⚡', x, y);
     }
     
-    drawLevelUpRegion(ctx, x, y, scale) {
+    drawLevelUpZone(ctx, x, y, scale) {
         const width = 90 * scale;
         const height = 20 * scale;
         
-        // Use the exact same color as the final level up region
+        // Use the exact same color as the final level up zone
         ctx.fillStyle = 'rgba(255, 107, 53, 0.3)';
         ctx.fillRect(x - width/2, y - height/2, width, height);
         
@@ -658,7 +717,30 @@ class DroppingAnimation {
         ctx.font = `${12 * scale}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('⬆️', x, y);
+        ctx.fillText('➕', x, y);
+    }
+    
+    drawAntiGravityZone(ctx, x, y, scale) {
+        const width = 90 * scale;
+        const height = 20 * scale;
+        
+        // Use the exact same color as the final antigravity zone
+        ctx.fillStyle = 'rgba(255, 0, 255, 0.3)';
+        ctx.fillRect(x - width/2, y - height/2, width, height);
+        
+        // Draw border
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 2 * scale;
+        ctx.setLineDash([5 * scale, 5 * scale]);
+        ctx.strokeRect(x - width/2, y - height/2, width, height);
+        ctx.setLineDash([]);
+        
+        // Draw antigravity symbol
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${12 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↑↓', x, y);
     }
 }
 
@@ -691,16 +773,19 @@ function createActualItem(animation) {
             console.log(`Created actual ${itemType} at (${endX.toFixed(1)}, ${endY.toFixed(1)})`);
         }
     } else {
-        // Create region
+        // Create zone
         switch (itemType) {
             case 'cash':
-                createCashRegion(endX, endY, itemData.rotation);
+                createCashZone(endX, endY, itemData.rotation);
                 break;
             case 'multiplier':
-                createMultiplierRegion(endX, endY, 2, itemData.rotation);
+                createMultiplierZone(endX, endY, 2, itemData.rotation);
                 break;
             case 'levelUp':
-                createLevelUpRegion(endX, endY, itemData.rotation);
+                createLevelUpZone(endX, endY, itemData.rotation);
+                break;
+            case 'antiGravity':
+                createAntiGravityZone(endX, endY, itemData.rotation);
                 break;
         }
         
@@ -717,20 +802,30 @@ let items = {
     cash: { available: true, used: false },
     multiplier: { available: true, used: false },
     levelUp: { available: true, used: false },
+    antiGravity: { available: true, used: false },
     ballLevel: { available: true, used: false },
-    ballCount: { available: true, used: false }
+    ballCount: { available: true, used: false },
+    // New dragging permission items
+    moveMultiplierZone: { available: true, used: false },
+    moveLevelUpZone: { available: true, used: false },
+    moveCashZone: { available: true, used: false },
+    movePortalIn: { available: true, used: false },
+    movePortalOut: { available: true, used: false },
+    // Resize permission items
+    resizeAntiGravity: { available: true, used: false }
 };
 let currentItemMode = null; // 'wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon', 'cash', 'multiplier', 'levelUp', or null
 
 // Modal system state
 let isModalOpen = false;
-let isPlacingItem = false; // True when user is in placement mode for walls/regions
+let isPlacingItem = false; // True when user is in placement mode for walls/zones
+let isShopHidden = false; // True when shop is hidden (transparent/blurred)
 
 // Wall item preview state
 let wallItemPreviewX = 0;
 let wallItemPreviewY = 0;
 let wallItemRotation = Math.PI / 4; // Default to 45 degrees
-let regionItemRotation = 0; // Default to 0 degrees for region items
+let zoneItemRotation = 0; // Default to 0 degrees for zone items
 
 // Wall dragging state
 let isDraggingWall = false;
@@ -738,9 +833,70 @@ let draggedWall = null;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 
+// Anti-gravity zone dragging state
+let isDraggingAntiGravityZone = false;
+let draggedAntiGravityZone = null;
+let antiGravityZoneDragOffsetX = 0;
+let antiGravityZoneDragOffsetY = 0;
+let antiGravityZoneLastValidPosition = { x: 0, y: 0 };
 
-// Permanent bottom cash region
-let permanentBottomCashRegion = null;
+// Anti-gravity zone resizing state
+let isResizingAntiGravityZone = false;
+let resizedAntiGravityZone = null;
+let resizeEdge = null; // 'top', 'bottom', 'left', 'right'
+let resizeStartX = 0;
+let resizeStartY = 0;
+let resizeStartWidth = 0;
+let resizeStartHeight = 0;
+let resizeStartCenterX = 0;
+let resizeStartCenterY = 0;
+
+// Multiplier zone dragging state
+let isDraggingMultiplierZone = false;
+let draggedMultiplierZone = null;
+let multiplierZoneDragOffsetX = 0;
+let multiplierZoneDragOffsetY = 0;
+let multiplierZoneLastValidPosition = { x: 0, y: 0 };
+
+// Portal zone dragging state
+let isDraggingPortalZone = false;
+let draggedPortalZone = null;
+let portalZoneDragOffsetX = 0;
+let portalZoneDragOffsetY = 0;
+let portalZoneLastValidPosition = { x: 0, y: 0 };
+
+// Cash zone dragging state
+let isDraggingCashZone = false;
+let draggedCashZone = null;
+let cashZoneDragOffsetX = 0;
+let cashZoneDragOffsetY = 0;
+let cashZoneLastValidPosition = { x: 0, y: 0 };
+
+// Level up zone dragging state
+let isDraggingLevelUpZone = false;
+let draggedLevelUpZone = null;
+let levelUpZoneDragOffsetX = 0;
+let levelUpZoneDragOffsetY = 0;
+let levelUpZoneLastValidPosition = { x: 0, y: 0 };
+
+// Dragging permissions (default to false - must be purchased)
+let draggingPermissions = {
+    multiplierZone: false,
+    levelUpZone: false,
+    cashZone: false,
+    antiGravityZone: false,
+    portalIn: false,
+    portalOut: false
+};
+
+// Resize permissions (default to false - must be purchased)
+let resizingPermissions = {
+    antiGravityZone: false
+};
+
+
+// Permanent bottom cash zone
+let permanentBottomCashZone = null;
 
 
 
@@ -753,20 +909,23 @@ function exitAllToolModes() {
     portalMode = false;
     cashMode = false;
     levelUpMode = false;
+    antiGravityMode = false;
     
     // Reset tool button text and colors
     wallToolButton.textContent = 'Wall Drawing Tool';
     wallToolButton.style.background = '#ffa502';
-    multiplierToolButton.textContent = 'Multiplier Region Tool';
+    multiplierToolButton.textContent = 'Multiplier Zone Tool';
     multiplierToolButton.style.background = '#9c88ff';
     removerToolButton.textContent = 'Remover Tool';
     removerToolButton.style.background = '#ff4757';
     portalToolButton.textContent = 'Portal Tool';
     portalToolButton.style.background = '#00b894';
-    cashToolButton.textContent = 'Cash Region Tool';
+    cashToolButton.textContent = 'Cash Zone Tool';
     cashToolButton.style.background = '#2ed573';
-    levelUpToolButton.textContent = 'Level Up Region Tool';
+    levelUpToolButton.textContent = 'Level Up Zone Tool';
     levelUpToolButton.style.background = '#ff6b35';
+    antiGravityToolButton.textContent = 'Anti-Gravity Zone Tool';
+    antiGravityToolButton.style.background = '#ff00ff';
     
     // Hide multiplier factor display
     multiplierFactorDisplay.style.display = 'none';
@@ -796,10 +955,11 @@ let isMouseOnCanvas = false;
 
 // Hover tracking for remover tool
 let hoveredWall = null;
-let hoveredMultiplierRegion = null;
-let hoveredPortalRegion = null;
-let hoveredCashRegion = null;
-let hoveredLevelUpRegion = null;
+let hoveredMultiplierZone = null;
+let hoveredPortalZone = null;
+let hoveredCashZone = null;
+let hoveredLevelUpZone = null;
+let hoveredAntiGravityZone = null;
 
 // Get DOM elements
 const gravitySlider = document.getElementById('gravitySlider');
@@ -833,9 +993,12 @@ const removerToolButton = document.getElementById('removerToolButton');
 // Modal elements
 const itemModal = document.getElementById('itemModal');
 const itemModalBackdrop = document.getElementById('itemModalBackdrop');
+const hideShopButton = document.getElementById('hideShopButton');
+const shopHiddenMessage = document.getElementById('shopHiddenMessage');
 const portalToolButton = document.getElementById('portalToolButton');
 const cashToolButton = document.getElementById('cashToolButton');
 const levelUpToolButton = document.getElementById('levelUpToolButton');
+const antiGravityToolButton = document.getElementById('antiGravityToolButton');
 const dropButton = document.getElementById('dropButton');
 const drop10Button = document.getElementById('drop10Button');
 const dropTestButton = document.getElementById('dropTestButton');
@@ -980,8 +1143,10 @@ function dropTestBalls() {
         currentSpawnX = spawnStartX + Math.random() * (spawnEndX - spawnStartX);
     }
     
-    // Reset test ball counter
+    // Reset test ball counter and money
     testBallCount = currentBallCount;
+    testMoneyEarned = 0;
+    testBallMaxLevel = 1;
     updateTestBallDisplay();
     
     // Clear any existing test ball timeouts
@@ -1263,114 +1428,126 @@ function createWallRect(centerX, centerY, rotation) {
     return wall;
 }
 
-// Function to draw placement restriction circles around existing regions
-function drawPlacementRestrictionCircles(regionType) {
-    const minDistance = REGION_PLACEMENT.minDistance;
+// Function to draw placement restriction circles around existing zones
+function drawPlacementRestrictionCircles(zoneType) {
+    const minDistance = ZONE_PLACEMENT.minDistance;
     
-    // Draw circles around all existing regions
-    const allRegions = [
-        ...multiplierRegions.map(r => ({...r, type: 'multiplier'})),
-        ...cashRegions.map(r => ({...r, type: 'cash'})),
-        ...levelUpRegions.map(r => ({...r, type: 'levelUp'})),
-        ...portalRegions.map(r => ({...r, type: 'portal'}))
+    // Draw circles around all existing zones
+    const allZones = [
+        ...multiplierZones.map(r => ({...r, type: 'multiplier'})),
+        ...cashZones.map(r => ({...r, type: 'cash'})),
+        ...levelUpZones.map(r => ({...r, type: 'levelUp'})),
+        ...antiGravityZones.map(r => ({...r, type: 'antiGravity'})),
+        ...portalZones.map(r => ({...r, type: 'portal'}))
     ];
     
-    // Add permanent bottom cash region if it exists
-    if (permanentBottomCashRegion) {
-        allRegions.push({
-            ...permanentBottomCashRegion,
+    // Add permanent bottom cash zone if it exists
+    if (permanentBottomCashZone) {
+        allZones.push({
+            ...permanentBottomCashZone,
             type: 'permanent_cash'
         });
     }
     
-    allRegions.forEach(region => {
-        // Use different colors based on region type
-        if (region.type === regionType) {
+    allZones.forEach(zone => {
+        // Use different colors based on zone type
+        if (zone.type === zoneType) {
             // Green for same type (level up opportunity)
             ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; // Semi-transparent green
-        } else if (regionType === 'cash' && region.type === 'portal') {
-            // Red for portal regions when placing cash regions (hard conflict)
+        } else if (zoneType === 'cash' && zone.type === 'portal') {
+            // Red for portal zones when placing cash zones (hard conflict)
             ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
-        } else if (regionType === 'cash' && region.type === 'permanent_cash') {
-            // Special handling for permanent cash region - draw the actual region bounds
+        } else if (zoneType === 'cash' && zone.type === 'permanent_cash') {
+            // Special handling for permanent cash zone - draw the actual zone bounds
             ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
-            ctx.fillRect(region.x1, region.y1, region.x2 - region.x1, region.y2 - region.y1);
-            return; // Skip the circle drawing for permanent cash region
+            ctx.fillRect(zone.x1, zone.y1, zone.x2 - zone.x1, zone.y2 - zone.y1);
+            return; // Skip the circle drawing for permanent cash zone
         } else {
             // Red for different type (conflict)
             ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
         }
         
-        // Draw circle for regular regions
-        const centerX = (region.x1 + region.x2) / 2;
-        const centerY = (region.y1 + region.y2) / 2;
+        // Draw circle for regular zones
+        const centerX = (zone.x1 + zone.x2) / 2;
+        const centerY = (zone.y1 + zone.y2) / 2;
         ctx.beginPath();
         ctx.arc(centerX, centerY, minDistance, 0, 2 * Math.PI);
         ctx.fill();
     });
 }
 
-// Function to check region placement and return collision info
-function checkRegionPlacement(centerX, centerY, regionType) {
-    const minDistance = REGION_PLACEMENT.minDistance;
+// Function to check zone placement and return collision info
+function checkZonePlacement(centerX, centerY, zoneType) {
+    const minDistance = ZONE_PLACEMENT.minDistance;
     const result = {
         canPlace: true,
         levelUpTarget: null,
         hasConflict: false
     };
     
-    // Check all existing regions
-    const allRegions = [
-        ...multiplierRegions.map(r => ({...r, type: 'multiplier', original: r})),
-        ...cashRegions.map(r => ({...r, type: 'cash', original: r})),
-        ...levelUpRegions.map(r => ({...r, type: 'levelUp', original: r})),
-        ...portalRegions.map(r => ({...r, type: 'portal', original: r}))
+    // Anti-gravity zones are exempt from overlap rules
+    if (zoneType === 'antiGravity') {
+        return result; // Always allow placement
+    }
+    
+    // Check all existing zones
+    const allZones = [
+        ...multiplierZones.map(r => ({...r, type: 'multiplier', original: r})),
+        ...cashZones.map(r => ({...r, type: 'cash', original: r})),
+        ...levelUpZones.map(r => ({...r, type: 'levelUp', original: r})),
+        ...antiGravityZones.map(r => ({...r, type: 'antiGravity', original: r})),
+        ...portalZones.map(r => ({...r, type: 'portal', original: r}))
     ];
     
-    // Add permanent bottom cash region if it exists
-    if (permanentBottomCashRegion) {
-        allRegions.push({
-            ...permanentBottomCashRegion,
+    // Add permanent bottom cash zone if it exists
+    if (permanentBottomCashZone) {
+        allZones.push({
+            ...permanentBottomCashZone,
             type: 'permanent_cash',
-            original: permanentBottomCashRegion
+            original: permanentBottomCashZone
         });
     }
     
-    // First pass: check for same-type regions (upgrade opportunities)
-    for (const region of allRegions) {
-        if (region.type === regionType) {
-            // Check if the new region would overlap with the buffer area around the existing same-type region
-            if (checkRegionOverlapWithBuffer(centerX, centerY, regionType, region, minDistance)) {
-                // Found a same-type region nearby - this is an upgrade opportunity
-                result.levelUpTarget = region.original; // Return reference to original region
+    // First pass: check for same-type zones (upgrade opportunities)
+    for (const zone of allZones) {
+        if (zone.type === zoneType) {
+            // Check if the new zone would overlap with the buffer area around the existing same-type zone
+            if (checkZoneOverlapWithBuffer(centerX, centerY, zoneType, zone, minDistance)) {
+                // Found a same-type zone nearby - this is an upgrade opportunity
+                result.levelUpTarget = zone.original; // Return reference to original zone
                 result.canPlace = true; // Can place for level up
                 return result; // Return immediately - upgrade overrides all other conflicts
             }
         }
     }
     
-    // Second pass: check for conflicts with different-type regions
-    for (const region of allRegions) {
-        // Special handling for permanent cash region - always check for overlap regardless of distance
-        if (regionType === 'cash' && region.type === 'permanent_cash') {
-            if (checkRectangularOverlap(centerX, centerY, regionType, region)) {
+    // Second pass: check for conflicts with different-type zones
+    for (const zone of allZones) {
+        // Skip anti-gravity zones - they don't conflict with other zones
+        if (zone.type === 'antiGravity') {
+            continue;
+        }
+        
+        // Special handling for permanent cash zone - always check for overlap regardless of distance
+        if (zoneType === 'cash' && zone.type === 'permanent_cash') {
+            if (checkRectangularOverlap(centerX, centerY, zoneType, zone)) {
                 result.canPlace = false;
                 result.hasConflict = true;
                 return result; // Return immediately - this is a hard conflict
             }
-            continue; // Skip the distance-based check for permanent cash region
+            continue; // Skip the distance-based check for permanent cash zone
         }
         
-        // Check for geometric overlap with the restricted area (minDistance buffer around existing regions)
-        if (checkRegionOverlapWithBuffer(centerX, centerY, regionType, region, minDistance)) {
-            // Check if this is a special case where cash regions cannot overlap
-            if (regionType === 'cash' && region.type === 'portal') {
-                // Cash regions cannot overlap with portal regions
+        // Check for geometric overlap with the restricted area (minDistance buffer around existing zones)
+        if (checkZoneOverlapWithBuffer(centerX, centerY, zoneType, zone, minDistance)) {
+            // Check if this is a special case where cash zones cannot overlap
+            if (zoneType === 'cash' && zone.type === 'portal') {
+                // Cash zones cannot overlap with portal zones
                 result.canPlace = false;
                 result.hasConflict = true;
                 return result; // Return immediately - this is a hard conflict
-            } else if (region.type !== regionType) {
-                // Found a different-type region nearby - this is a conflict
+            } else if (zone.type !== zoneType) {
+                // Found a different-type zone nearby - this is a conflict
                 result.canPlace = false;
                 result.hasConflict = true;
             }
@@ -1380,30 +1557,30 @@ function checkRegionPlacement(centerX, centerY, regionType) {
     return result;
 }
 
-// Function to check for rectangular overlap between a new region and an existing region
-function checkRectangularOverlap(centerX, centerY, regionType, existingRegion) {
-    // Get dimensions for the new region based on type
+// Function to check for rectangular overlap between a new zone and an existing zone
+function checkRectangularOverlap(centerX, centerY, zoneType, existingZone) {
+    // Get dimensions for the new zone based on type
     let newWidth, newHeight;
-    if (regionType === 'cash') {
-        newWidth = REGION_CONFIG.cash.width;
-        newHeight = REGION_CONFIG.cash.height;
+    if (zoneType === 'cash') {
+        newWidth = ZONE_CONFIG.cash.width;
+        newHeight = ZONE_CONFIG.cash.height;
     } else {
-        // Default dimensions for other region types
+        // Default dimensions for other zone types
         newWidth = 100;
         newHeight = 50;
     }
     
-    // Calculate bounds for the new region
+    // Calculate bounds for the new zone
     const newLeft = centerX - newWidth / 2;
     const newRight = centerX + newWidth / 2;
     const newTop = centerY - newHeight / 2;
     const newBottom = centerY + newHeight / 2;
     
-    // Get bounds for the existing region
-    const existingLeft = existingRegion.x1;
-    const existingRight = existingRegion.x2;
-    const existingTop = existingRegion.y1;
-    const existingBottom = existingRegion.y2;
+    // Get bounds for the existing zone
+    const existingLeft = existingZone.x1;
+    const existingRight = existingZone.x2;
+    const existingTop = existingZone.y1;
+    const existingBottom = existingZone.y2;
     
     // Check for overlap using standard rectangle overlap algorithm
     return !(newRight < existingLeft || 
@@ -1412,36 +1589,36 @@ function checkRectangularOverlap(centerX, centerY, regionType, existingRegion) {
              newTop > existingBottom);
 }
 
-// Function to check if a new region would overlap with the circular buffer area around an existing region
-function checkRegionOverlapWithBuffer(centerX, centerY, regionType, existingRegion, bufferDistance) {
-    // Get dimensions for the new region based on type
+// Function to check if a new zone would overlap with the circular buffer area around an existing zone
+function checkZoneOverlapWithBuffer(centerX, centerY, zoneType, existingZone, bufferDistance) {
+    // Get dimensions for the new zone based on type
     let newWidth, newHeight;
-    if (regionType === 'cash') {
-        newWidth = REGION_CONFIG.cash.width;
-        newHeight = REGION_CONFIG.cash.height;
-    } else if (regionType === 'multiplier') {
-        newWidth = REGION_CONFIG.multiplier.width;
-        newHeight = REGION_CONFIG.multiplier.height;
-    } else if (regionType === 'levelUp') {
-        newWidth = REGION_CONFIG.levelUp.width;
-        newHeight = REGION_CONFIG.levelUp.height;
+    if (zoneType === 'cash') {
+        newWidth = ZONE_CONFIG.cash.width;
+        newHeight = ZONE_CONFIG.cash.height;
+    } else if (zoneType === 'multiplier') {
+        newWidth = ZONE_CONFIG.multiplier.width;
+        newHeight = ZONE_CONFIG.multiplier.height;
+    } else if (zoneType === 'levelUp') {
+        newWidth = ZONE_CONFIG.levelUp.width;
+        newHeight = ZONE_CONFIG.levelUp.height;
     } else {
-        // Default dimensions for other region types
+        // Default dimensions for other zone types
         newWidth = 100;
         newHeight = 50;
     }
     
-    // Get the center of the existing region
-    const existingCenterX = (existingRegion.x1 + existingRegion.x2) / 2;
-    const existingCenterY = (existingRegion.y1 + existingRegion.y2) / 2;
+    // Get the center of the existing zone
+    const existingCenterX = (existingZone.x1 + existingZone.x2) / 2;
+    const existingCenterY = (existingZone.y1 + existingZone.y2) / 2;
     
-    // Calculate bounds for the new region
+    // Calculate bounds for the new zone
     const newLeft = centerX - newWidth / 2;
     const newRight = centerX + newWidth / 2;
     const newTop = centerY - newHeight / 2;
     const newBottom = centerY + newHeight / 2;
     
-    // Check if any corner of the new region is within the circular buffer area
+    // Check if any corner of the new zone is within the circular buffer area
     const corners = [
         { x: newLeft, y: newTop },     // Top-left
         { x: newRight, y: newTop },    // Top-right
@@ -1459,8 +1636,8 @@ function checkRegionOverlapWithBuffer(centerX, centerY, regionType, existingRegi
         }
     }
     
-    // Also check if the existing region's center is within the new region
-    // (in case the new region is large enough to contain the existing region's center)
+    // Also check if the existing zone's center is within the new zone
+    // (in case the new zone is large enough to contain the existing zone's center)
     if (existingCenterX >= newLeft && existingCenterX <= newRight &&
         existingCenterY >= newTop && existingCenterY <= newBottom) {
         return true;
@@ -1469,17 +1646,17 @@ function checkRegionOverlapWithBuffer(centerX, centerY, regionType, existingRegi
     return false;
 }
 
-// Function to check if a new multiplier region placement conflicts with existing regions
-function checkMultiplierRegionCollision(centerX, centerY) {
-    const result = checkRegionPlacement(centerX, centerY, 'multiplier');
+// Function to check if a new multiplier zone placement conflicts with existing zones
+function checkMultiplierZoneCollision(centerX, centerY) {
+    const result = checkZonePlacement(centerX, centerY, 'multiplier');
     return !result.canPlace;
 }
 
-// Function to create a multiplier region at the specified position
-function createMultiplierRegion(centerX, centerY, factor, rotation = 0) {
+// Function to create a multiplier zone at the specified position
+function createMultiplierZone(centerX, centerY, factor, rotation = 0) {
     // Use centralized dimensions
-    const width = REGION_CONFIG.multiplier.width;
-    const height = REGION_CONFIG.multiplier.height;
+    const width = ZONE_CONFIG.multiplier.width;
+    const height = ZONE_CONFIG.multiplier.height;
     
     // Create Matter.js body for collision detection
     const body = Bodies.rectangle(centerX, centerY, width, height, {
@@ -1491,8 +1668,8 @@ function createMultiplierRegion(centerX, centerY, factor, rotation = 0) {
         }
     });
     
-    // Create region object with Matter.js body reference
-    const region = {
+    // Create zone object with Matter.js body reference
+    const zone = {
         x1: centerX - width / 2,
         y1: centerY - height / 2,
         x2: centerX + width / 2,
@@ -1513,25 +1690,25 @@ function createMultiplierRegion(centerX, centerY, factor, rotation = 0) {
     objectCount++;
     objectCountElement.textContent = objectCount;
     
-    multiplierRegions.push(region);
-    return region;
+    multiplierZones.push(zone);
+    return zone;
 }
 
-// Function to create a portal region at the specified position
-function createPortalRegion(centerX, centerY, color) {
+// Function to create a portal zone at the specified position
+function createPortalZone(centerX, centerY, color) {
     // Remove any existing portal of the same color
-    for (let i = portalRegions.length - 1; i >= 0; i--) {
-        if (portalRegions[i].color === color) {
+    for (let i = portalZones.length - 1; i >= 0; i--) {
+        if (portalZones[i].color === color) {
             // Remove the old body from world
-            World.remove(world, portalRegions[i].body);
+            World.remove(world, portalZones[i].body);
             objectCount--;
-            portalRegions.splice(i, 1);
+            portalZones.splice(i, 1);
         }
     }
     
     // Use centralized dimensions
-    const width = REGION_CONFIG.portal.width;
-    const height = REGION_CONFIG.portal.height;
+    const width = ZONE_CONFIG.portal.width;
+    const height = ZONE_CONFIG.portal.height;
     
     // Create Matter.js body for collision detection
     const body = Bodies.rectangle(centerX, centerY, width, height, {
@@ -1542,12 +1719,16 @@ function createPortalRegion(centerX, centerY, color) {
         }
     });
     
-    // Create region object with Matter.js body reference
-    const region = {
+    // Create zone object with Matter.js body reference
+    const zone = {
         x1: centerX - width / 2,
         y1: centerY - height / 2,
         x2: centerX + width / 2,
         y2: centerY + height / 2,
+        centerX: centerX,
+        centerY: centerY,
+        width: width,
+        height: height,
         color: color, // 'blue' or 'orange'
         id: Date.now() + Math.random(), // Unique ID for tracking
         body: body // Reference to Matter.js body
@@ -1558,21 +1739,21 @@ function createPortalRegion(centerX, centerY, color) {
     objectCount++;
     objectCountElement.textContent = objectCount;
     
-    portalRegions.push(region);
-    return region;
+    portalZones.push(zone);
+    return zone;
 }
 
-// Function to check if a new cash region placement conflicts with existing regions
-function checkCashRegionCollision(centerX, centerY) {
-    const result = checkRegionPlacement(centerX, centerY, 'cash');
+// Function to check if a new cash zone placement conflicts with existing zones
+function checkCashZoneCollision(centerX, centerY) {
+    const result = checkZonePlacement(centerX, centerY, 'cash');
     return !result.canPlace;
 }
 
-// Function to create a cash region at the specified position
-function createCashRegion(centerX, centerY, rotation = 0) {
+// Function to create a cash zone at the specified position
+function createCashZone(centerX, centerY, rotation = 0) {
     // Use centralized dimensions
-    const width = REGION_CONFIG.cash.width;
-    const height = REGION_CONFIG.cash.height;
+    const width = ZONE_CONFIG.cash.width;
+    const height = ZONE_CONFIG.cash.height;
     
     // Create Matter.js body for collision detection
     const body = Bodies.rectangle(centerX, centerY, width, height, {
@@ -1584,8 +1765,8 @@ function createCashRegion(centerX, centerY, rotation = 0) {
         }
     });
     
-    // Create region object with Matter.js body reference
-    const region = {
+    // Create zone object with Matter.js body reference
+    const zone = {
         x1: centerX - width / 2,
         y1: centerY - height / 2,
         x2: centerX + width / 2,
@@ -1605,21 +1786,21 @@ function createCashRegion(centerX, centerY, rotation = 0) {
     objectCount++;
     objectCountElement.textContent = objectCount;
     
-    cashRegions.push(region);
-    return region;
+    cashZones.push(zone);
+    return zone;
 }
 
-// Function to check if a new level up region placement conflicts with existing regions
-function checkLevelUpRegionCollision(centerX, centerY) {
-    const result = checkRegionPlacement(centerX, centerY, 'levelUp');
+// Function to check if a new level up zone placement conflicts with existing zones
+function checkLevelUpZoneCollision(centerX, centerY) {
+    const result = checkZonePlacement(centerX, centerY, 'levelUp');
     return !result.canPlace;
 }
 
-// Function to create a level up region at the specified position
-function createLevelUpRegion(centerX, centerY, rotation = 0) {
+// Function to create a level up zone at the specified position
+function createLevelUpZone(centerX, centerY, rotation = 0) {
     // Use centralized dimensions
-    const width = REGION_CONFIG.levelUp.width;
-    const height = REGION_CONFIG.levelUp.height;
+    const width = ZONE_CONFIG.levelUp.width;
+    const height = ZONE_CONFIG.levelUp.height;
     
     // Create Matter.js body for collision detection
     const body = Bodies.rectangle(centerX, centerY, width, height, {
@@ -1631,8 +1812,8 @@ function createLevelUpRegion(centerX, centerY, rotation = 0) {
         }
     });
     
-    // Create region object with Matter.js body reference
-    const region = {
+    // Create zone object with Matter.js body reference
+    const zone = {
         x1: centerX - width / 2,
         y1: centerY - height / 2,
         x2: centerX + width / 2,
@@ -1652,16 +1833,57 @@ function createLevelUpRegion(centerX, centerY, rotation = 0) {
     objectCount++;
     objectCountElement.textContent = objectCount;
     
-    levelUpRegions.push(region);
-    return region;
+    levelUpZones.push(zone);
+    return zone;
 }
 
-// Function to create the permanent bottom cash region
-function createPermanentBottomCashRegion() {
-    // Create a region that occupies only the middle 50% of the canvas width
+// Function to create an anti-gravity zone at the specified position
+function createAntiGravityZone(centerX, centerY, rotation = 0) {
+    // Use centralized dimensions
+    const width = ZONE_CONFIG.antiGravity.width;
+    const height = ZONE_CONFIG.antiGravity.height;
+    
+    // Create Matter.js body for collision detection
+    const body = Bodies.rectangle(centerX, centerY, width, height, {
+        isStatic: true,
+        isSensor: true, // Sensor bodies don't have physical collision response
+        angle: rotation, // Apply rotation to the body
+        render: {
+            visible: false // We'll draw it manually in the render function
+        }
+    });
+    
+    // Create zone object with Matter.js body reference
+    const zone = {
+        x1: centerX - width / 2,
+        y1: centerY - height / 2,
+        x2: centerX + width / 2,
+        y2: centerY + height / 2,
+        centerX: centerX,
+        centerY: centerY,
+        width: width,
+        height: height,
+        rotation: rotation,
+        level: 1, // Start at level 1
+        id: Date.now() + Math.random(), // Unique ID for tracking
+        body: body // Reference to Matter.js body
+    };
+    
+    // Add body to world
+    World.add(world, body);
+    objectCount++;
+    objectCountElement.textContent = objectCount;
+    
+    antiGravityZones.push(zone);
+    return zone;
+}
+
+// Function to create the permanent bottom cash zone
+function createPermanentBottomCashZone() {
+    // Create a zone that occupies only the middle 50% of the canvas width
     const canvasWidth = CANVAS_CONFIG.width;
     const width = canvasWidth * 0.5; // 50% of canvas width
-    const height = 30; // Make it a bit taller than regular cash regions
+    const height = 30; // Make it a bit taller than regular cash zones
     const centerX = canvasWidth / 2; // Center of canvas
     const centerY = CANVAS_CONFIG.height - height / 2; // Position at bottom of canvas
     
@@ -1674,16 +1896,16 @@ function createPermanentBottomCashRegion() {
         }
     });
     
-    // Create region object with Matter.js body reference
-    const region = {
+    // Create zone object with Matter.js body reference
+    const zone = {
         x1: centerX - width / 2,
         y1: centerY - height / 2,
         x2: centerX + width / 2,
         y2: centerY + height / 2,
         level: 1, // Start at level 1
-        id: 'permanent_bottom_cash', // Special ID for the permanent region
+        id: 'permanent_bottom_cash', // Special ID for the permanent zone
         body: body, // Reference to Matter.js body
-        isPermanent: true // Flag to identify this as the permanent region
+        isPermanent: true // Flag to identify this as the permanent zone
     };
     
     // Add body to world
@@ -1691,8 +1913,8 @@ function createPermanentBottomCashRegion() {
     objectCount++;
     objectCountElement.textContent = objectCount;
     
-    permanentBottomCashRegion = region;
-    return region;
+    permanentBottomCashZone = zone;
+    return zone;
 }
 
 // Function to check if a point is inside a wall body
@@ -1720,57 +1942,70 @@ function isPointInWall(x, y, wall) {
     return inside;
 }
 
-// Function to check if a point is inside a multiplier region
-function isPointInMultiplierRegion(x, y, region) {
-    return x >= region.x1 && x <= region.x2 && y >= region.y1 && y <= region.y2;
+// Function to check if a point is inside a multiplier zone
+function isPointInMultiplierZone(x, y, zone) {
+    return x >= zone.x1 && x <= zone.x2 && y >= zone.y1 && y <= zone.y2;
 }
 
-// Function to check if a point is inside a portal region
-function isPointInPortalRegion(x, y, region) {
-    return x >= region.x1 && x <= region.x2 && y >= region.y1 && y <= region.y2;
+// Function to check if a point is inside a portal zone
+function isPointInPortalZone(x, y, zone) {
+    return x >= zone.x1 && x <= zone.x2 && y >= zone.y1 && y <= zone.y2;
 }
 
-// Function to check if a point is inside a cash region
-function isPointInCashRegion(x, y, region) {
-    return x >= region.x1 && x <= region.x2 && y >= region.y1 && y <= region.y2;
+// Function to check if a point is inside a cash zone
+function isPointInCashZone(x, y, zone) {
+    return x >= zone.x1 && x <= zone.x2 && y >= zone.y1 && y <= zone.y2;
 }
 
-// Function to check if a point is inside a level up region
-function isPointInLevelUpRegion(x, y, region) {
-    return x >= region.x1 && x <= region.x2 && y >= region.y1 && y <= region.y2;
+// Function to check if a point is inside a level up zone
+function isPointInLevelUpZone(x, y, zone) {
+    return x >= zone.x1 && x <= zone.x2 && y >= zone.y1 && y <= zone.y2;
+}
+
+// Function to check if a point is inside an anti-gravity zone
+function isPointInAntiGravityZone(x, y, zone) {
+    return x >= zone.x1 && x <= zone.x2 && y >= zone.y1 && y <= zone.y2;
 }
 
 // Function to check what object is being hovered over
 function getHoveredObject(x, y) {
-    // First check portal regions (they're drawn on top)
-    for (let i = portalRegions.length - 1; i >= 0; i--) {
-        const region = portalRegions[i];
-        if (isPointInPortalRegion(x, y, region)) {
-            return { type: 'portal', object: region };
+    // First check portal zones (they're drawn on top)
+    for (let i = portalZones.length - 1; i >= 0; i--) {
+        const zone = portalZones[i];
+        if (isPointInPortalZone(x, y, zone)) {
+            return { type: 'portal', object: zone };
         }
     }
     
-    // Then check level up regions
-    for (let i = levelUpRegions.length - 1; i >= 0; i--) {
-        const region = levelUpRegions[i];
-        if (isPointInLevelUpRegion(x, y, region)) {
-            return { type: 'levelUp', object: region };
+    // Then check level up zones
+    for (let i = levelUpZones.length - 1; i >= 0; i--) {
+        const zone = levelUpZones[i];
+        if (isPointInLevelUpZone(x, y, zone)) {
+            return { type: 'levelUp', object: zone };
         }
     }
     
-    // Then check cash regions
-    for (let i = cashRegions.length - 1; i >= 0; i--) {
-        const region = cashRegions[i];
-        if (isPointInCashRegion(x, y, region)) {
-            return { type: 'cash', object: region };
+    // Then check anti-gravity zones
+    for (let i = antiGravityZones.length - 1; i >= 0; i--) {
+        const zone = antiGravityZones[i];
+        if (isPointInAntiGravityZone(x, y, zone)) {
+            return { type: 'antiGravity', object: zone };
         }
     }
     
-    // Then check multiplier regions
-    for (let i = multiplierRegions.length - 1; i >= 0; i--) {
-        const region = multiplierRegions[i];
-        if (isPointInMultiplierRegion(x, y, region)) {
-            return { type: 'multiplier', object: region };
+    // Then check cash zones
+    for (let i = cashZones.length - 1; i >= 0; i--) {
+        const zone = cashZones[i];
+        if (isPointInCashZone(x, y, zone)) {
+            return { type: 'cash', object: zone };
+        }
+    }
+    
+    // Then check multiplier zones
+    for (let i = multiplierZones.length - 1; i >= 0; i--) {
+        const zone = multiplierZones[i];
+        if (isPointInMultiplierZone(x, y, zone)) {
+            return { type: 'multiplier', object: zone };
         }
     }
     
@@ -1798,7 +2033,7 @@ function findWallAt(x, y) {
     const bodies = Matter.Composite.allBodies(world);
     for (let i = bodies.length - 1; i >= 0; i--) {
         const body = bodies[i];
-        // Skip main tank walls, balls, and region bodies
+        // Skip main tank walls, balls, and zone bodies
         // Allow circle walls (body.circleRadius && body.isWall) to be found
         if (body === leftWall || body === rightWall || body === tankWall || body === tankTopWall || 
             (body.circleRadius && !body.isWall) || body.isSensor) {
@@ -1812,60 +2047,129 @@ function findWallAt(x, y) {
     return null;
 }
 
-// Function to remove wall, multiplier region, portal region, cash region, or level up region at click point
+// Function to find an anti-gravity zone at the given coordinates
+function findAntiGravityZoneAt(x, y) {
+    for (let i = antiGravityZones.length - 1; i >= 0; i--) {
+        const zone = antiGravityZones[i];
+        if (isPointInAntiGravityZone(x, y, zone)) {
+            return zone;
+        }
+    }
+    return null;
+}
+
+// Function to find a multiplier zone at the given coordinates
+function findMultiplierZoneAt(x, y) {
+    for (let i = multiplierZones.length - 1; i >= 0; i--) {
+        const zone = multiplierZones[i];
+        if (isPointInMultiplierZone(x, y, zone)) {
+            return zone;
+        }
+    }
+    return null;
+}
+
+// Function to find a portal zone at the given coordinates
+function findPortalZoneAt(x, y) {
+    for (let i = portalZones.length - 1; i >= 0; i--) {
+        const zone = portalZones[i];
+        if (isPointInPortalZone(x, y, zone)) {
+            return zone;
+        }
+    }
+    return null;
+}
+
+// Function to find a cash zone at the given coordinates
+function findCashZoneAt(x, y) {
+    for (let i = cashZones.length - 1; i >= 0; i--) {
+        const zone = cashZones[i];
+        if (isPointInCashZone(x, y, zone)) {
+            return zone;
+        }
+    }
+    return null;
+}
+
+// Function to find a level up zone at the given coordinates
+function findLevelUpZoneAt(x, y) {
+    for (let i = levelUpZones.length - 1; i >= 0; i--) {
+        const zone = levelUpZones[i];
+        if (isPointInLevelUpZone(x, y, zone)) {
+            return zone;
+        }
+    }
+    return null;
+}
+
+// Function to remove wall, multiplier zone, portal zone, cash zone, or level up zone at click point
 function removeObjectAt(x, y) {
-    // First check portal regions (they're drawn on top)
-    for (let i = portalRegions.length - 1; i >= 0; i--) {
-        const region = portalRegions[i];
-        if (isPointInPortalRegion(x, y, region)) {
+    // First check portal zones (they're drawn on top)
+    for (let i = portalZones.length - 1; i >= 0; i--) {
+        const zone = portalZones[i];
+        if (isPointInPortalZone(x, y, zone)) {
             // Remove the Matter.js body
-            World.remove(world, region.body);
+            World.remove(world, zone.body);
             objectCount--;
             objectCountElement.textContent = objectCount;
-            portalRegions.splice(i, 1);
-            console.log('Removed portal region');
+            portalZones.splice(i, 1);
+            console.log('Removed portal zone');
             return true;
         }
     }
     
-    // Then check level up regions
-    for (let i = levelUpRegions.length - 1; i >= 0; i--) {
-        const region = levelUpRegions[i];
-        if (isPointInLevelUpRegion(x, y, region)) {
+    // Then check level up zones
+    for (let i = levelUpZones.length - 1; i >= 0; i--) {
+        const zone = levelUpZones[i];
+        if (isPointInLevelUpZone(x, y, zone)) {
             // Remove the Matter.js body
-            World.remove(world, region.body);
+            World.remove(world, zone.body);
             objectCount--;
             objectCountElement.textContent = objectCount;
-            levelUpRegions.splice(i, 1);
-            console.log('Removed level up region');
+            levelUpZones.splice(i, 1);
+            console.log('Removed level up zone');
             return true;
         }
     }
     
-    // Then check cash regions
-    for (let i = cashRegions.length - 1; i >= 0; i--) {
-        const region = cashRegions[i];
-        if (isPointInCashRegion(x, y, region)) {
+    // Then check anti-gravity zones
+    for (let i = antiGravityZones.length - 1; i >= 0; i--) {
+        const zone = antiGravityZones[i];
+        if (isPointInAntiGravityZone(x, y, zone)) {
             // Remove the Matter.js body
-            World.remove(world, region.body);
+            World.remove(world, zone.body);
             objectCount--;
             objectCountElement.textContent = objectCount;
-            cashRegions.splice(i, 1);
-            console.log('Removed cash region');
+            antiGravityZones.splice(i, 1);
+            console.log('Removed anti-gravity zone');
             return true;
         }
     }
     
-    // Then check multiplier regions
-    for (let i = multiplierRegions.length - 1; i >= 0; i--) {
-        const region = multiplierRegions[i];
-        if (isPointInMultiplierRegion(x, y, region)) {
+    // Then check cash zones
+    for (let i = cashZones.length - 1; i >= 0; i--) {
+        const zone = cashZones[i];
+        if (isPointInCashZone(x, y, zone)) {
             // Remove the Matter.js body
-            World.remove(world, region.body);
+            World.remove(world, zone.body);
             objectCount--;
             objectCountElement.textContent = objectCount;
-            multiplierRegions.splice(i, 1);
-            console.log('Removed multiplier region');
+            cashZones.splice(i, 1);
+            console.log('Removed cash zone');
+            return true;
+        }
+    }
+    
+    // Then check multiplier zones
+    for (let i = multiplierZones.length - 1; i >= 0; i--) {
+        const zone = multiplierZones[i];
+        if (isPointInMultiplierZone(x, y, zone)) {
+            // Remove the Matter.js body
+            World.remove(world, zone.body);
+            objectCount--;
+            objectCountElement.textContent = objectCount;
+            multiplierZones.splice(i, 1);
+            console.log('Removed multiplier zone');
             return true;
         }
     }
@@ -1874,7 +2178,7 @@ function removeObjectAt(x, y) {
     const bodies = Matter.Composite.allBodies(world);
     for (let i = bodies.length - 1; i >= 0; i--) {
         const body = bodies[i];
-        // Skip main tank walls, balls, and region bodies
+        // Skip main tank walls, balls, and zone bodies
         // Allow circle walls (body.circleRadius && body.isWall) to be removed
         if (body === leftWall || body === rightWall || body === tankWall || body === tankTopWall || 
             (body.circleRadius && !body.isWall) || body.isSensor) {
@@ -1898,16 +2202,17 @@ function clearAllObjects() {
     const bodies = Matter.Composite.allBodies(world);
     bodies.forEach(body => {
         if (body !== leftWall && body !== rightWall && body !== tankWall && body !== tankTopWall && 
-            body !== permanentBottomCashRegion?.body) {
+            body !== permanentBottomCashZone?.body) {
             World.remove(world, body);
         }
     });
-    // Clear multiplier regions, portal regions, cash regions, and level up regions arrays
-    multiplierRegions = [];
-    portalRegions = [];
-    cashRegions = [];
-    levelUpRegions = [];
-    objectCount = 1; // Keep count of 1 for the permanent bottom cash region
+    // Clear multiplier zones, portal zones, cash zones, level up zones, and anti-gravity zones arrays
+    multiplierZones = [];
+    portalZones = [];
+    cashZones = [];
+    levelUpZones = [];
+    antiGravityZones = [];
+    objectCount = 1; // Keep count of 1 for the permanent bottom cash zone
     objectCountElement.textContent = objectCount;
     
     // Reset drop button state and restore floor to default state (dropped/off)
@@ -1920,6 +2225,7 @@ function clearAllObjects() {
     
     // Reset test ball state
     testBallCount = 0;
+    testBallMaxLevel = 1;
     updateTestBallDisplay();
     
     // Reset test ball tracking state
@@ -1980,11 +2286,7 @@ function endTest() {
     objectCountElement.textContent = objectCount;
     updateDisplayValues();
     
-    // Reset test ball state
-    testBallCount = 0;
-    updateTestBallDisplay();
-    
-    // Reset test ball tracking state
+    // Reset test ball tracking state (but keep test results displayed)
     hadTestBallsInPreviousState = false;
     
     // Update button state after a small delay to ensure Matter.js has processed removals
@@ -2002,7 +2304,7 @@ function forceClearBalls() {
     let regularBallCount = 0;
     
     bodies.forEach(body => {
-        // Only remove balls, keep walls and regions
+        // Only remove balls, keep walls and zones
         if (body.circleRadius && body !== leftWall && body !== rightWall && body !== tankWall && body !== tankTopWall && !body.isWall) {
             World.remove(world, body);
             objectCount--;
@@ -2027,6 +2329,8 @@ function forceClearBalls() {
     
     // Reset test ball state
     testBallCount = 0;
+    testMoneyEarned = 0;
+    testBallMaxLevel = 1;
     updateTestBallDisplay();
     
     // Reset test ball tracking state
@@ -2123,6 +2427,9 @@ function updateDropButtonState() {
         
         // Increment turn when transitioning from disabled to enabled (only for regular drops)
         if (!wasEnabled && isDropButtonEnabled && !hadTestBallsInPreviousState && !isEndingTest) {
+            // Calculate earnings from last turn before incrementing
+            lastTurnEarnings = wallet.money - turnStartMoney;
+            
             currentTurn++;
             updateTurnDisplay();
             resetItemsForNewTurn();
@@ -2150,7 +2457,7 @@ function checkForFallenBalls() {
         }
     });
     
-    // Remove fallen balls (no longer gives money - handled by cash region)
+    // Remove fallen balls (no longer gives money - handled by cash zone)
     fallenBalls.forEach(ball => {
         World.remove(world, ball);
         objectCount--;
@@ -2231,15 +2538,15 @@ function checkForStuckBalls() {
     }
 }
 
-// Function to handle multiplier region collision
-function handleMultiplierCollision(ball, region) {
-    // Check if this ball hasn't been multiplied by this region yet
+// Function to handle multiplier zone collision
+function handleMultiplierCollision(ball, zone) {
+    // Check if this ball hasn't been multiplied by this zone yet
     if (!ball.multipliedBy) {
         ball.multipliedBy = new Set();
     }
     
-    if (!ball.multipliedBy.has(region.id)) {
-        const newBallCount = region.factor - 1; // -1 because the original ball already exists
+    if (!ball.multipliedBy.has(zone.id)) {
+        const newBallCount = zone.factor - 1; // -1 because the original ball already exists
         const ballX = ball.position.x;
         const ballY = ball.position.y;
         const ballRadius = ball.circleRadius;
@@ -2257,33 +2564,36 @@ function handleMultiplierCollision(ball, region) {
                 y: ball.velocity.y * velocityMultiplier
             });
             
-            // Mark the new ball as multiplied by this region
+            // Mark the new ball as multiplied by this zone
             if (!newBall.multipliedBy) {
                 newBall.multipliedBy = new Set();
             }
-            newBall.multipliedBy.add(region.id);
+            newBall.multipliedBy.add(zone.id);
             
             // Inherit portal status from parent ball
             newBall.hasUsedPortal = ball.hasUsedPortal;
             newBall.render.fillStyle = ball.render.fillStyle;
             
-            // If this is a test ball, increment the counter
+            // If this is a test ball, increment the counter and track max level
             if (ball.isTestBall) {
                 testBallCount++;
+                if (ball.level > testBallMaxLevel) {
+                    testBallMaxLevel = ball.level;
+                }
                 updateTestBallDisplay();
             }
         }
         
-        // Mark the original ball as multiplied by this region
-        ball.multipliedBy.add(region.id);
+        // Mark the original ball as multiplied by this zone
+        ball.multipliedBy.add(zone.id);
     }
 }
 
-// Function to handle portal region collision
-function handlePortalCollision(ball, region) {
-    if (region.color === 'blue' && !ball.hasUsedPortal) {
+// Function to handle portal zone collision
+function handlePortalCollision(ball, zone) {
+    if (zone.color === 'blue' && !ball.hasUsedPortal) {
         // Find the corresponding orange portal
-        const orangePortal = portalRegions.find(p => p.color === 'orange');
+        const orangePortal = portalZones.find(p => p.color === 'orange');
         
         if (orangePortal) {
             // Calculate the center of the orange portal
@@ -2300,7 +2610,7 @@ function handlePortalCollision(ball, region) {
             // Change the ball's color to black
             ball.render.fillStyle = COLORS.ballPortal;
             
-            // Reset the ball's multiplier status so it can go through regions again
+            // Reset the ball's multiplier status so it can go through zones again
             ball.multipliedBy = new Set();
             
             // Teleport the ball to the orange portal center
@@ -2318,9 +2628,23 @@ function handlePortalCollision(ball, region) {
     }
 }
 
-// Function to play a random pop sound
+// Sound throttling system
+let lastSoundPlayTime = 0;
+const SOUND_THROTTLE_MS = 50; // Minimum milliseconds between sounds (20 sounds per second max)
+
+// Function to play a random pop sound (with throttling)
 function playRandomPopSound() {
     try {
+        const currentTime = Date.now();
+        
+        // Check if enough time has passed since last sound
+        if (currentTime - lastSoundPlayTime < SOUND_THROTTLE_MS) {
+            return; // Skip this sound to avoid overwhelming the audio system
+        }
+        
+        // Update last play time
+        lastSoundPlayTime = currentTime;
+        
         // Generate random number between 1 and 5
         const soundNumber = Math.floor(Math.random() * 5) + 1;
         const soundFile = `sounds/pop${soundNumber}.mp3`;
@@ -2336,67 +2660,91 @@ function playRandomPopSound() {
     }
 }
 
-// Function to handle cash region collision
-function handleCashCollision(ball, region) {
-    // Skip cash regions for test balls
-    if (ball.isTestBall) {
-        return;
-    }
-    
-    // Check if this ball hasn't triggered this cash region yet
+// Function to handle cash zone collision
+function handleCashCollision(ball, zone) {
+    // Check if this ball hasn't triggered this cash zone yet
     if (!ball.cashTriggeredBy) {
         ball.cashTriggeredBy = new Set();
     }
     
-    if (!ball.cashTriggeredBy.has(region.id)) {
-        // Add money equal to ball level * region level (e.g., level 2 ball in level 3 region = 6 dollars)
+    if (!ball.cashTriggeredBy.has(zone.id)) {
+        // Add money equal to ball level * zone level (e.g., level 2 ball in level 3 zone = 6 dollars)
         
         // Safety check to prevent NaN values
         const ballLevel = ball.level || 1;
-        const regionLevel = region.level || 1;
-        const moneyToAdd = ballLevel * regionLevel;
+        const zoneLevel = zone.level || 1;
+        const moneyToAdd = ballLevel * zoneLevel;
         
-        wallet.money += moneyToAdd;
+        // For test balls, only track the money (don't add to wallet)
+        if (ball.isTestBall) {
+            testMoneyEarned += moneyToAdd;
+            updateTestBallDisplay();
+        } else {
+            // For regular balls, add money to wallet
+            wallet.money += moneyToAdd;
+            
+            // Play random pop sound when money is earned
+            playRandomPopSound();
+            
+            // Create money animation at ball position
+            const ballPos = ball.position;
+            moneyAnimations.push(new MoneyAnimation(ballPos.x, ballPos.y, moneyToAdd));
+        }
         
-        // Play random pop sound when money is earned
-        playRandomPopSound();
-        
-        // Create money animation at ball position
-        const ballPos = ball.position;
-        moneyAnimations.push(new MoneyAnimation(ballPos.x, ballPos.y, moneyToAdd));
-        
-        // Mark this ball as having triggered this cash region
-        ball.cashTriggeredBy.add(region.id);
+        // Mark this ball as having triggered this cash zone
+        ball.cashTriggeredBy.add(zone.id);
         
         // Update display
         updateDisplayValues();
     }
 }
 
-// Function to handle level up region collision
-function handleLevelUpCollision(ball, region) {
-    // Skip level up regions for test balls
-    if (ball.isTestBall) {
-        return;
-    }
-    
-    // Check if this ball hasn't been leveled up by this region yet
+// Function to handle level up zone collision
+function handleLevelUpCollision(ball, zone) {
+    // Check if this ball hasn't been leveled up by this zone yet
     if (!ball.leveledUpBy) {
         ball.leveledUpBy = new Set();
     }
     
-    if (!ball.leveledUpBy.has(region.id)) {
-        // Level up the ball by the region's level amount
-        ball.level += region.level;
+    if (!ball.leveledUpBy.has(zone.id)) {
+        // Calculate scale factor based on zone level
+        // Each level increases the ball size by 15%
+        const scaleFactor = 1 + (zone.level * 0.15);
         
-        // Update the ball's color to reflect the new level
-        ball.render.fillStyle = getBallColorForLevel(ball.level);
+        // Scale the ball's size
+        Body.scale(ball, scaleFactor, scaleFactor);
         
-        // Mark this ball as having been leveled up by this region
-        ball.leveledUpBy.add(region.id);
+        // Level up the ball by the zone's level amount
+        ball.level += zone.level;
+        
+        // Mark this ball as having been leveled up by this zone
+        ball.leveledUpBy.add(zone.id);
+        
+        // If this is a test ball, track the max level
+        if (ball.isTestBall && ball.level > testBallMaxLevel) {
+            testBallMaxLevel = ball.level;
+            updateTestBallDisplay();
+        }
         
         // Update display
         updateDisplayValues();
+    }
+}
+
+// Function to handle anti-gravity zone collision
+function handleAntiGravityCollision(ball, zone) {
+    // Check if this ball hasn't been affected by this anti-gravity zone yet
+    if (!ball.antiGravityAffectedBy) {
+        ball.antiGravityAffectedBy = new Set();
+    }
+    
+    if (!ball.antiGravityAffectedBy.has(zone.id)) {
+        // Reverse the ball's gravity by applying upward force
+        // We'll apply a constant upward force while the ball is in the zone
+        ball.inAntiGravityZone = zone.id;
+        
+        // Mark this ball as having been affected by this zone
+        ball.antiGravityAffectedBy.add(zone.id);
     }
 }
 
@@ -2511,6 +2859,32 @@ function resetItemsForNewTurn() {
     items.ballCount.available = true;
     items.ballCount.used = false;
     
+    // Reset dragging permission items
+    items.moveMultiplierZone.available = true;
+    items.moveMultiplierZone.used = false;
+    items.moveLevelUpZone.available = true;
+    items.moveLevelUpZone.used = false;
+    items.moveCashZone.available = true;
+    items.moveCashZone.used = false;
+    items.movePortalIn.available = true;
+    items.movePortalIn.used = false;
+    items.movePortalOut.available = true;
+    items.movePortalOut.used = false;
+    
+    // Reset resize permission items
+    items.resizeAntiGravity.available = true;
+    items.resizeAntiGravity.used = false;
+    
+    // Reset dragging permissions for next turn
+    draggingPermissions.multiplierZone = false;
+    draggingPermissions.levelUpZone = false;
+    draggingPermissions.cashZone = false;
+    draggingPermissions.portalIn = false;
+    draggingPermissions.portalOut = false;
+    
+    // Reset resizing permissions for next turn
+    resizingPermissions.antiGravityZone = false;
+    
     // Reset current item mode
     currentItemMode = null;
     
@@ -2537,8 +2911,22 @@ function showItemModal() {
     
     isModalOpen = true;
     
+    // Reset shop hidden state when opening modal
+    isShopHidden = false;
+    itemModal.classList.remove('hidden-shop');
+    itemModalBackdrop.classList.remove('shop-hidden');
+    if (shopHiddenMessage) {
+        shopHiddenMessage.classList.remove('show');
+    }
+    if (hideShopButton) {
+        hideShopButton.textContent = 'Hide Shop';
+    }
+    
     // Show all available items instead of random selection
     showAllItemsInModal();
+    
+    // Update wallet display
+    updateShopWalletDisplay();
     
     // Show modal with animation
     itemModalBackdrop.classList.add('show');
@@ -2564,6 +2952,48 @@ function hideItemModal() {
     }
 }
 
+// Function to hide the shop (make it transparent and blurred)
+function hideShop() {
+    if (!isModalOpen) return;
+    
+    isShopHidden = true;
+    
+    // Add classes for transparent/blurred state
+    itemModal.classList.add('hidden-shop');
+    itemModalBackdrop.classList.add('shop-hidden');
+    
+    // Show the "Click to return to Shop" message
+    if (shopHiddenMessage) {
+        shopHiddenMessage.classList.add('show');
+    }
+    
+    // Update button text
+    if (hideShopButton) {
+        hideShopButton.textContent = 'Show Shop';
+    }
+}
+
+// Function to show the shop (restore from transparent/blurred state)
+function showShop() {
+    if (!isModalOpen || !isShopHidden) return;
+    
+    isShopHidden = false;
+    
+    // Remove classes for transparent/blurred state
+    itemModal.classList.remove('hidden-shop');
+    itemModalBackdrop.classList.remove('shop-hidden');
+    
+    // Hide the "Click to return to Shop" message
+    if (shopHiddenMessage) {
+        shopHiddenMessage.classList.remove('show');
+    }
+    
+    // Update button text
+    if (hideShopButton) {
+        hideShopButton.textContent = 'Hide Shop';
+    }
+}
+
 // Function to find a random position within the game area
 function findRandomPosition(itemType) {
     const canvasWidth = CANVAS_CONFIG.width;
@@ -2580,7 +3010,7 @@ function findRandomPosition(itemType) {
         else if (itemType === 'wallTriangle') itemSize = 120;
         else if (itemType === 'wallHexagon') itemSize = 100;
     } else if (itemType === 'cash' || itemType === 'multiplier' || itemType === 'levelUp') {
-        itemSize = 60; // region size
+        itemSize = 60; // zone size
     }
     
     // Calculate safe area
@@ -2594,6 +3024,81 @@ function findRandomPosition(itemType) {
     const y = minY + Math.random() * (maxY - minY);
     
     return { x, y };
+}
+
+// Function to find a random position for a zone that avoids existing zones
+function findRandomZonePosition(itemType) {
+    const canvasWidth = CANVAS_CONFIG.width;
+    const canvasHeight = CANVAS_CONFIG.height;
+    
+    // Define safe margins from edges
+    const margin = 50;
+    
+    // Define zone size based on type
+    let zoneSize = 60; // default zone size
+    if (itemType === 'antiGravity') {
+        zoneSize = ZONE_CONFIG.antiGravity.width; // Use actual zone config
+    } else if (itemType === 'cash') {
+        zoneSize = ZONE_CONFIG.cash.width;
+    } else if (itemType === 'multiplier') {
+        zoneSize = ZONE_CONFIG.multiplier.width;
+    } else if (itemType === 'levelUp') {
+        zoneSize = ZONE_CONFIG.levelUp.width;
+    }
+    
+    // Calculate safe area
+    const minX = margin + zoneSize / 2;
+    const maxX = canvasWidth - margin - zoneSize / 2;
+    const minY = margin + zoneSize / 2;
+    const maxY = canvasHeight - margin - zoneSize / 2;
+    
+    // Try to find a position that doesn't overlap with existing zones
+    const maxAttempts = 50;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const x = minX + Math.random() * (maxX - minX);
+        const y = minY + Math.random() * (maxY - minY);
+        
+        // For anti-gravity zones, don't check for overlap with other zones
+        if (itemType === 'antiGravity') {
+            return { x, y };
+        }
+        
+        // Check if this position conflicts with existing zones
+        if (!isPositionOccupiedByZone(x, y, zoneSize)) {
+            return { x, y };
+        }
+    }
+    
+    // If we couldn't find a non-overlapping position, return a random position anyway
+    console.log(`Warning: Could not find non-overlapping position for ${itemType} zone after ${maxAttempts} attempts`);
+    const x = minX + Math.random() * (maxX - minX);
+    const y = minY + Math.random() * (maxY - minY);
+    return { x, y };
+}
+
+// Function to check if a position is occupied by any existing zone
+function isPositionOccupiedByZone(x, y, zoneSize, excludeAntiGravity = false) {
+    const minDistance = ZONE_PLACEMENT.minDistance || 80; // Minimum distance between zones
+    
+    // Check all existing zones
+    const allZones = [
+        ...cashZones,
+        ...multiplierZones,
+        ...levelUpZones,
+        ...(excludeAntiGravity ? [] : antiGravityZones) // Exclude anti-gravity zones if requested
+    ];
+    
+    for (const zone of allZones) {
+        const distance = Math.sqrt(
+            Math.pow(x - zone.centerX, 2) + Math.pow(y - zone.centerY, 2)
+        );
+        
+        if (distance < minDistance) {
+            return true; // Position is too close to existing zone
+        }
+    }
+    
+    return false; // Position is clear
 }
 
 // Function to automatically place a wall item
@@ -2615,46 +3120,102 @@ function autoPlaceWall(itemType) {
     console.log(`Started dropping animation for ${itemType} to (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
 }
 
-// Function to automatically upgrade a region item
-function autoUpgradeRegion(itemType) {
-    const success = upgradeRandomRegion(itemType);
+// Function to automatically place a zone item
+function autoPlaceZone(itemType) {
+    console.log(`autoPlaceZone called for: ${itemType}`);
+    const position = findRandomZonePosition(itemType);
+    console.log(`Found position: (${position.x}, ${position.y})`);
+    
+    // Create dropping animation starting from top of screen
+    const startX = position.x;
+    const startY = 50; // Start from top of screen
+    const endX = position.x;
+    const endY = position.y;
+    
+    const animation = new DroppingAnimation(itemType, startX, startY, endX, endY, {
+        rotation: 0 // No rotation - keep default angle
+    });
+    
+    droppingAnimations.push(animation);
+    
+    console.log(`Started dropping animation for ${itemType} zone to (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
+}
+
+// Function to automatically upgrade a zone item
+function autoUpgradeZone(itemType) {
+    console.log(`autoUpgradeZone called for: ${itemType}`);
+    
+    // For antigravity zones, always create new ones instead of upgrading
+    if (itemType === 'antiGravity') {
+        console.log(`Creating new antigravity zone (always create new, don't upgrade)`);
+        autoPlaceZone(itemType);
+        return;
+    }
+    
+    const success = upgradeRandomZone(itemType);
+    console.log(`upgradeRandomZone success: ${success}`);
     
     if (!success) {
-        console.log(`Failed to upgrade ${itemType} region - no existing regions found`);
+        console.log(`No existing ${itemType} zones found - creating new one`);
+        // If no existing zones, create a new one
+        autoPlaceZone(itemType);
     }
 }
 
-// Function to upgrade a random existing region of the specified type
-function upgradeRandomRegion(itemType) {
-    let regions = [];
+// Function to upgrade a random existing zone of the specified type
+function upgradeRandomZone(itemType) {
+    let zones = [];
     
-    // Get the appropriate region array based on type
+    // Get the appropriate zone array based on type
     if (itemType === 'cash') {
-        regions = cashRegions;
+        zones = cashZones;
     } else if (itemType === 'multiplier') {
-        regions = multiplierRegions;
+        zones = multiplierZones;
     } else if (itemType === 'levelUp') {
-        regions = levelUpRegions;
+        zones = levelUpZones;
+    } else if (itemType === 'antiGravity') {
+        zones = antiGravityZones;
     }
     
-    // Check if there are any existing regions of this type
-    if (regions.length === 0) {
+    // Check if there are any existing zones of this type
+    if (zones.length === 0) {
         return false;
     }
     
-    // Select a random region to upgrade
-    const randomIndex = Math.floor(Math.random() * regions.length);
-    const regionToUpgrade = regions[randomIndex];
-    
-    // Upgrade the region
-    regionToUpgrade.level++;
-    
-    // For multiplier regions, also update the factor
+    // For multiplier zones, filter out zones that are already at max level (level 4 = 5x)
+    // For level up zones, filter out zones that are already at max level (level 5 = +5)
+    let eligibleZones = zones;
     if (itemType === 'multiplier') {
-        regionToUpgrade.factor = regionToUpgrade.level + 1; // factor = level + 1
+        const MAX_MULTIPLIER_LEVEL = 4; // Level 4 = 5x (factor = level + 1)
+        eligibleZones = zones.filter(zone => zone.level < MAX_MULTIPLIER_LEVEL);
+        
+        // If no zones can be upgraded, return false
+        if (eligibleZones.length === 0) {
+            return false;
+        }
+    } else if (itemType === 'levelUp') {
+        const MAX_LEVEL_UP_LEVEL = 5; // Level 5 = +5
+        eligibleZones = zones.filter(zone => zone.level < MAX_LEVEL_UP_LEVEL);
+        
+        // If no zones can be upgraded, return false
+        if (eligibleZones.length === 0) {
+            return false;
+        }
     }
     
-    console.log(`Upgraded ${itemType} region to level ${regionToUpgrade.level}`);
+    // Select a random zone to upgrade from eligible zones
+    const randomIndex = Math.floor(Math.random() * eligibleZones.length);
+    const zoneToUpgrade = eligibleZones[randomIndex];
+    
+    // Upgrade the zone
+    zoneToUpgrade.level++;
+    
+    // For multiplier zones, also update the factor
+    if (itemType === 'multiplier') {
+        zoneToUpgrade.factor = zoneToUpgrade.level + 1; // factor = level + 1
+    }
+    
+    console.log(`Upgraded ${itemType} zone to level ${zoneToUpgrade.level}`);
     
     // Mark ALL items as used for this turn
     markAllItemsAsUsed();
@@ -2664,6 +3225,11 @@ function upgradeRandomRegion(itemType) {
 
 // Function to handle item selection from modal
 function selectItemFromModal(itemType) {
+    console.log(`Attempting to select item: ${itemType}`);
+    console.log(`Item available: ${items[itemType]?.available}`);
+    console.log(`Can afford: ${canAffordItem(itemType)}`);
+    console.log(`Current wallet: $${wallet.money}`);
+    
     if (!items[itemType].available) return;
     
     // Check if player can afford the item
@@ -2686,7 +3252,9 @@ function selectItemFromModal(itemType) {
     // Categorize items into immediate effects vs auto-placed items
     const immediateEffectItems = ['ballLevel', 'ballCount'];
     const wallItems = ['wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon'];
-    const regionItems = ['cash', 'multiplier', 'levelUp'];
+    const zoneItems = ['cash', 'multiplier', 'levelUp', 'antiGravity'];
+    const draggingPermissionItems = ['moveMultiplierZone', 'moveLevelUpZone', 'moveCashZone', 'movePortalIn', 'movePortalOut'];
+    const resizingPermissionItems = ['resizeAntiGravity'];
     
     if (immediateEffectItems.includes(itemType)) {
         // Apply immediate effect
@@ -2698,28 +3266,204 @@ function selectItemFromModal(itemType) {
     } else if (wallItems.includes(itemType)) {
         // Auto-place wall
         autoPlaceWall(itemType);
-    } else if (regionItems.includes(itemType)) {
-        // Auto-upgrade region
-        autoUpgradeRegion(itemType);
+    } else if (zoneItems.includes(itemType)) {
+        // Auto-upgrade zone
+        autoUpgradeZone(itemType);
+    } else if (draggingPermissionItems.includes(itemType)) {
+        // Grant dragging permission
+        grantDraggingPermission(itemType);
+    } else if (resizingPermissionItems.includes(itemType)) {
+        // Grant resizing permission
+        grantResizingPermission(itemType);
     }
+}
+
+// Function to check if a dragged zone can be placed at a new position
+function canPlaceDraggedZone(centerX, centerY, draggedZone, zoneType) {
+    const minDistance = ZONE_PLACEMENT.minDistance;
+    
+    // Anti-gravity zones are exempt from overlap rules
+    if (zoneType === 'antiGravity') {
+        return true; // Always allow placement
+    }
+    
+    // Get all existing zones except the one being dragged
+    const allZones = [
+        ...multiplierZones.filter(z => z !== draggedZone).map(r => ({...r, type: 'multiplier', original: r})),
+        ...cashZones.filter(z => z !== draggedZone).map(r => ({...r, type: 'cash', original: r})),
+        ...levelUpZones.filter(z => z !== draggedZone).map(r => ({...r, type: 'levelUp', original: r})),
+        ...antiGravityZones.filter(z => z !== draggedZone).map(r => ({...r, type: 'antiGravity', original: r})),
+        ...portalZones.filter(z => z !== draggedZone).map(r => ({...r, type: 'portal', original: r}))
+    ];
+    
+    // Add permanent bottom cash zone if it exists
+    if (permanentBottomCashZone) {
+        allZones.push({
+            ...permanentBottomCashZone,
+            type: 'permanent_cash',
+            original: permanentBottomCashZone
+        });
+    }
+    
+    // Check for conflicts with other zones
+    for (const zone of allZones) {
+        // Skip anti-gravity zones - they don't conflict with other zones
+        if (zone.type === 'antiGravity') {
+            continue;
+        }
+        
+        // Special handling for permanent cash zone - always check for overlap regardless of distance
+        if (zoneType === 'cash' && zone.type === 'permanent_cash') {
+            if (checkRectangularOverlap(centerX, centerY, zoneType, zone)) {
+                return false; // Hard conflict
+            }
+            continue; // Skip the distance-based check for permanent cash zone
+        }
+        
+        // Check for geometric overlap with the restricted area (minDistance buffer around existing zones)
+        if (checkZoneOverlapWithBuffer(centerX, centerY, zoneType, zone, minDistance)) {
+            // When dragging, prevent ALL overlaps regardless of zone type
+            return false; // Any overlap is a conflict when dragging
+        }
+    }
+    
+    return true; // Can place the zone
+}
+
+// Function to grant dragging permission for a specific item type
+function grantDraggingPermission(itemType) {
+    switch (itemType) {
+        case 'moveMultiplierZone':
+            draggingPermissions.multiplierZone = true;
+            console.log('Granted permission to move multiplier zones');
+            break;
+        case 'moveLevelUpZone':
+            draggingPermissions.levelUpZone = true;
+            console.log('Granted permission to move level up zones');
+            break;
+        case 'moveCashZone':
+            draggingPermissions.cashZone = true;
+            console.log('Granted permission to move cash zones');
+            break;
+        case 'movePortalIn':
+            draggingPermissions.portalIn = true;
+            console.log('Granted permission to move IN portals');
+            break;
+        case 'movePortalOut':
+            draggingPermissions.portalOut = true;
+            console.log('Granted permission to move OUT portals');
+            break;
+    }
+}
+
+// Function to grant resizing permission for a specific item type
+function grantResizingPermission(itemType) {
+    console.log(`grantResizingPermission called for: ${itemType}`);
+    
+    switch (itemType) {
+        case 'resizeAntiGravity':
+            resizingPermissions.antiGravityZone = true;
+            console.log('Granted permission to resize anti-gravity zones');
+            break;
+    }
+}
+
+// Function to check if mouse is near an edge of an anti-gravity zone
+function getAntiGravityZoneEdgeAt(x, y, zone) {
+    const edgeThreshold = 10; // pixels from edge to detect
+    
+    // Calculate zone boundaries
+    const left = zone.centerX - zone.width / 2;
+    const right = zone.centerX + zone.width / 2;
+    const top = zone.centerY - zone.height / 2;
+    const bottom = zone.centerY + zone.height / 2;
+    
+    // Check if mouse is within the zone area (with some margin)
+    const margin = edgeThreshold;
+    if (x < left - margin || x > right + margin || y < top - margin || y > bottom + margin) {
+        return null; // Not near this zone
+    }
+    
+    // Check which edge is closest
+    const distToLeft = Math.abs(x - left);
+    const distToRight = Math.abs(x - right);
+    const distToTop = Math.abs(y - top);
+    const distToBottom = Math.abs(y - bottom);
+    
+    // Find the minimum distance
+    const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+    
+    // If within threshold, return the edge
+    if (minDist <= edgeThreshold) {
+        if (minDist === distToLeft) return 'left';
+        if (minDist === distToRight) return 'right';
+        if (minDist === distToTop) return 'top';
+        if (minDist === distToBottom) return 'bottom';
+    }
+    
+    return null;
+}
+
+// Function to find an anti-gravity zone edge at the given position
+function findAntiGravityZoneEdgeAt(x, y) {
+    if (!resizingPermissions.antiGravityZone) return null;
+    
+    for (const zone of antiGravityZones) {
+        const edge = getAntiGravityZoneEdgeAt(x, y, zone);
+        if (edge) {
+            return { zone, edge };
+        }
+    }
+    return null;
 }
 
 // Item pricing configuration
 const itemPrices = {
     wallSquare: 100,
-    wallCircle: 5,
+    wallCircle: 25,
     wallTriangle: 100,
     wallHexagon: 50,
-    cash: 50,
-    multiplier: 500,
+    cash: 100,
+    multiplier: 400,
     levelUp: 200,
+    antiGravity: 1000,
     ballLevel: 1000,
-    ballCount: 0
+    ballCount: 0,
+    // New dragging permission items
+    moveMultiplierZone: 400,
+    moveLevelUpZone: 200,
+    moveCashZone: 100,
+    movePortalIn: 800,
+    movePortalOut: 800,
+    // Resize permission items
+    resizeAntiGravity: 1000
 };
 
 // Function to check if player can afford an item
 function canAffordItem(itemType) {
     const price = itemPrices[itemType];
+    
+    // For multiplier upgrades, also check if there are any zones that can be upgraded
+    if (itemType === 'multiplier') {
+        const MAX_MULTIPLIER_LEVEL = 4; // Level 4 = 5x (factor = level + 1)
+        const canUpgrade = multiplierZones.length > 0 && 
+                          multiplierZones.some(zone => zone.level < MAX_MULTIPLIER_LEVEL);
+        return wallet.money >= price && canUpgrade;
+    }
+    
+    // For level up upgrades, also check if there are any zones that can be upgraded
+    if (itemType === 'levelUp') {
+        const MAX_LEVEL_UP_LEVEL = 5; // Level 5 = +5
+        const canUpgrade = levelUpZones.length > 0 && 
+                          levelUpZones.some(zone => zone.level < MAX_LEVEL_UP_LEVEL);
+        return wallet.money >= price && canUpgrade;
+    }
+    
+    // For resize anti-gravity, check if there are any anti-gravity zones
+    if (itemType === 'resizeAntiGravity') {
+        return wallet.money >= price && antiGravityZones.length > 0;
+    }
+    
     return wallet.money >= price;
 }
 
@@ -2737,7 +3481,7 @@ function purchaseItem(itemType) {
 // Function to update item affordability display
 function updateItemAffordability() {
     const itemOptions = document.querySelectorAll('.item-option');
-    const regionOptions = document.querySelectorAll('.region-option');
+    const zoneOptions = document.querySelectorAll('.zone-option');
     
     itemOptions.forEach(option => {
         const itemType = option.getAttribute('data-item');
@@ -2750,9 +3494,42 @@ function updateItemAffordability() {
         }
     });
     
-    regionOptions.forEach(option => {
+    zoneOptions.forEach(option => {
         const itemType = option.getAttribute('data-item');
         const price = parseInt(option.getAttribute('data-price'));
+        const priceElement = option.querySelector('.zone-price');
+        
+        // Check if multiplier is sold out (all zones maxed)
+        if (itemType === 'multiplier') {
+            const MAX_MULTIPLIER_LEVEL = 4; // Level 4 = 5x (factor = level + 1)
+            const allMaxed = multiplierZones.length > 0 && 
+                           multiplierZones.every(zone => zone.level >= MAX_MULTIPLIER_LEVEL);
+            
+            if (allMaxed) {
+                priceElement.textContent = 'Sold Out';
+                option.classList.add('unaffordable');
+                return;
+            } else {
+                // Reset to original price if not sold out
+                priceElement.textContent = `$${price}`;
+            }
+        }
+        
+        // Check if level up is sold out (all zones maxed)
+        if (itemType === 'levelUp') {
+            const MAX_LEVEL_UP_LEVEL = 5; // Level 5 = +5
+            const allMaxed = levelUpZones.length > 0 && 
+                           levelUpZones.every(zone => zone.level >= MAX_LEVEL_UP_LEVEL);
+            
+            if (allMaxed) {
+                priceElement.textContent = 'Sold Out';
+                option.classList.add('unaffordable');
+                return;
+            } else {
+                // Reset to original price if not sold out
+                priceElement.textContent = `$${price}`;
+            }
+        }
         
         if (canAffordItem(itemType)) {
             option.classList.remove('unaffordable');
@@ -2892,7 +3669,7 @@ function markAllItemsAsUsed() {
     items.multiplier.used = true;
 }
 
-// Region placement functions removed - regions now upgrade existing ones automatically
+// Zone placement functions removed - zones now upgrade existing ones automatically
 
 // Function to use ball level upgrade item
 function useBallLevelItem() {
@@ -2928,7 +3705,7 @@ function useBallCountItem() {
 
 // Function to update test ball count display
 function updateTestBallDisplay() {
-    testBallCountElement.textContent = '🔴 ' + testBallCount;
+    testBallCountElement.innerHTML = '🔴 ' + testBallCount + '<br>💵 $' + numberFormatShort(testMoneyEarned) + '<br>📊 Max Level: ' + testBallMaxLevel;
 }
 
 
@@ -2981,9 +3758,27 @@ function updateMoneyDisplay() {
     diamondsValue.textContent = '💎 ' + numberFormatShort(wallet.diamonds);
     keysValue.textContent = '🗝️ ' + numberFormatShort(wallet.keys);
     
+    // Update shop wallet display if modal is open
+    if (isModalOpen) {
+        updateShopWalletDisplay();
+    }
+    
     // Update affordability if modal is open
     if (isModalOpen) {
         updateItemAffordability();
+    }
+}
+
+// Function to update the wallet display in the shop modal
+function updateShopWalletDisplay() {
+    const shopWalletDisplay = document.getElementById('shopWalletDisplay');
+    if (shopWalletDisplay) {
+        shopWalletDisplay.textContent = `$${numberFormatShort(wallet.money)}`;
+    }
+    
+    const lastTurnDisplay = document.getElementById('lastTurnDisplay');
+    if (lastTurnDisplay) {
+        lastTurnDisplay.textContent = `$${numberFormatShort(lastTurnEarnings)}`;
     }
 }
 
@@ -3039,7 +3834,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Modal functionality
     const itemOptions = document.querySelectorAll('.item-option');
-    const regionOptions = document.querySelectorAll('.region-option');
+    const zoneOptions = document.querySelectorAll('.zone-option');
     
     // Add click listeners to all item options
     itemOptions.forEach(option => {
@@ -3049,8 +3844,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Add click listeners to all region options
-    regionOptions.forEach(option => {
+    // Add click listeners to all zone options
+    zoneOptions.forEach(option => {
         option.addEventListener('click', function() {
             const itemType = this.getAttribute('data-item');
             selectItemFromModal(itemType);
@@ -3059,8 +3854,24 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Close modal when clicking backdrop
     itemModalBackdrop.addEventListener('click', function() {
+        // If shop is hidden, show it again on click
+        if (isShopHidden) {
+            showShop();
+        }
         // Don't close modal on backdrop click - user must select an item
     });
+    
+    // Hide shop button functionality
+    if (hideShopButton) {
+        hideShopButton.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent event from bubbling to modal
+            if (isShopHidden) {
+                showShop();
+            } else {
+                hideShop();
+            }
+        });
+    }
     
     // Event listeners for sliders
     gravitySlider.addEventListener('input', (e) => {
@@ -3114,6 +3925,101 @@ pauseButton.addEventListener('click', () => {
     pauseButton.style.background = isPaused ? '#2ed573' : '#3742fa';
 });
 
+// Debug function to upgrade all zones to max and add objects
+function upgradeMaxDebug() {
+    console.log('Debug: Upgrade Max activated');
+    
+    // 1. Upgrade all multiplier zones to level 4 (5x)
+    multiplierZones.forEach(zone => {
+        zone.level = 4;
+        zone.factor = 5; // level + 1
+        console.log(`Upgraded multiplier zone to level 4 (5x)`);
+    });
+    
+    // 2. Upgrade all level up zones to level 5 (+5)
+    levelUpZones.forEach(zone => {
+        zone.level = 5;
+        console.log(`Upgraded level up zone to level 5 (+5)`);
+    });
+    
+    // 3. Upgrade all cash zones to level 5
+    cashZones.forEach(zone => {
+        zone.level = 5;
+        console.log(`Upgraded cash zone to level 5`);
+    });
+    
+    // 4. Create 10 random wall shapes
+    const wallTypes = ['wallSquare', 'wallCircle', 'wallTriangle', 'wallHexagon'];
+    const canvasWidth = CANVAS_CONFIG.width;
+    const canvasHeight = CANVAS_CONFIG.height;
+    const margin = 50;
+    
+    for (let i = 0; i < 10; i++) {
+        // Random position
+        const x = margin + Math.random() * (canvasWidth - 2 * margin);
+        const y = margin + Math.random() * (canvasHeight - 2 * margin);
+        const rotation = Math.random() * Math.PI * 2;
+        
+        // Random wall type
+        const wallType = wallTypes[Math.floor(Math.random() * wallTypes.length)];
+        
+        // Create wall
+        let wall;
+        switch (wallType) {
+            case 'wallSquare':
+                wall = createSquareWall(x, y, 80, rotation);
+                break;
+            case 'wallCircle':
+                wall = createCircleWall(x, y, 50);
+                break;
+            case 'wallTriangle':
+                wall = createTriangleWall(x, y, 120, rotation);
+                break;
+            case 'wallHexagon':
+                wall = createHexagonWall(x, y, 100, rotation);
+                break;
+        }
+        
+        console.log(`Created random ${wallType} at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+    }
+    
+    // 5. Create 1 anti-gravity zone at a random position
+    const agX = margin + Math.random() * (canvasWidth - 2 * margin);
+    const agY = margin + Math.random() * (canvasHeight - 2 * margin);
+    const agRotation = Math.random() * Math.PI * 2;
+    createAntiGravityZone(agX, agY, agRotation);
+    console.log(`Created anti-gravity zone at (${agX.toFixed(1)}, ${agY.toFixed(1)})`);
+    
+    // 6. Grant all dragging permissions
+    draggingPermissions.multiplierZone = true;
+    draggingPermissions.levelUpZone = true;
+    draggingPermissions.cashZone = true;
+    draggingPermissions.antiGravityZone = true;
+    draggingPermissions.portalIn = true;
+    draggingPermissions.portalOut = true;
+    console.log('Granted all dragging permissions');
+    
+    // 7. Grant all resizing permissions
+    resizingPermissions.antiGravityZone = true;
+    console.log('Granted all resizing permissions');
+    
+    console.log('Debug: Upgrade Max complete!');
+}
+
+// Debug money button
+const debugMoneyButton = document.getElementById('debugMoneyButton');
+debugMoneyButton.addEventListener('click', () => {
+    wallet.money += 100000;
+    updateMoneyDisplay();
+    console.log(`Debug: Added $100,000 to wallet. New total: $${wallet.money}`);
+});
+
+// Upgrade max button
+const upgradeMaxButton = document.getElementById('upgradeMaxButton');
+upgradeMaxButton.addEventListener('click', () => {
+    upgradeMaxDebug();
+});
+
 
 
 
@@ -3152,6 +4058,9 @@ drop10Button.addEventListener('click', () => {
         // Reset stuck state for new turn
         isStuck = false;
         lastBallDeletionTime = 0;
+        
+        // Track money at the start of this turn
+        turnStartMoney = wallet.money;
         
         dropBalls(currentBallCount);
         
@@ -3212,7 +4121,7 @@ multiplierToolButton.addEventListener('click', () => {
     if (multiplierPlacementMode) {
         // Toggle off multiplier placement mode
         multiplierPlacementMode = false;
-        multiplierToolButton.textContent = 'Multiplier Region Tool';
+        multiplierToolButton.textContent = 'Multiplier Zone Tool';
         multiplierToolButton.style.background = '#9c88ff';
         multiplierFactorDisplay.style.display = 'none';
         canvas.style.cursor = 'crosshair';
@@ -3274,7 +4183,7 @@ cashToolButton.addEventListener('click', () => {
     if (cashMode) {
         // Toggle off cash mode
         cashMode = false;
-        cashToolButton.textContent = 'Cash Region Tool';
+        cashToolButton.textContent = 'Cash Zone Tool';
         cashToolButton.style.background = '#2ed573';
         canvas.style.cursor = 'crosshair';
     } else {
@@ -3294,7 +4203,7 @@ levelUpToolButton.addEventListener('click', () => {
     if (levelUpMode) {
         // Toggle off level up mode
         levelUpMode = false;
-        levelUpToolButton.textContent = 'Level Up Region Tool';
+        levelUpToolButton.textContent = 'Level Up Zone Tool';
         levelUpToolButton.style.background = '#ff6b35';
         canvas.style.cursor = 'crosshair';
     } else {
@@ -3305,6 +4214,25 @@ levelUpToolButton.addEventListener('click', () => {
         levelUpMode = true;
         levelUpToolButton.textContent = 'Exit Level Up Tool';
         levelUpToolButton.style.background = '#ff6b6b';
+        canvas.style.cursor = 'none';
+    }
+});
+
+antiGravityToolButton.addEventListener('click', () => {
+    if (antiGravityMode) {
+        // Toggle off anti-gravity mode
+        antiGravityMode = false;
+        antiGravityToolButton.textContent = 'Anti-Gravity Zone Tool';
+        antiGravityToolButton.style.background = '#ff00ff';
+        canvas.style.cursor = 'crosshair';
+    } else {
+        // Exit all other modes first
+        exitAllModes();
+        
+        // Enter anti-gravity mode
+        antiGravityMode = true;
+        antiGravityToolButton.textContent = 'Exit Anti-Gravity Tool';
+        antiGravityToolButton.style.background = '#ff6b6b';
         canvas.style.cursor = 'none';
     }
 });
@@ -3379,9 +4307,9 @@ canvas.addEventListener('mousedown', function(event) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
-    // Check if clicking on a wall for dragging (only when not in any tool mode and no balls are active)
+    // Check if clicking on a wall or any zone for dragging (only when not in any tool mode and no balls are active)
     if (!removerMode && !wallDrawingMode && !multiplierPlacementMode && !portalMode && !cashMode && !levelUpMode && !currentItemMode) {
-        // Don't allow wall dragging if there are any balls (test or regular) on the canvas
+        // Don't allow dragging if there are any balls (test or regular) on the canvas
         if (hasBallsOnCanvas()) {
             return;
         }
@@ -3393,6 +4321,105 @@ canvas.addEventListener('mousedown', function(event) {
             draggedWall = wall;
             dragOffsetX = x - wall.position.x;
             dragOffsetY = y - wall.position.y;
+            return;
+        }
+        
+        // Check for anti-gravity zone edge resizing first (if permission is granted)
+        const edgeResult = findAntiGravityZoneEdgeAt(x, y);
+        if (edgeResult) {
+            // Start resizing the anti-gravity zone
+            isResizingAntiGravityZone = true;
+            resizedAntiGravityZone = edgeResult.zone;
+            resizeEdge = edgeResult.edge;
+            resizeStartX = x;
+            resizeStartY = y;
+            resizeStartWidth = edgeResult.zone.width;
+            resizeStartHeight = edgeResult.zone.height;
+            resizeStartCenterX = edgeResult.zone.centerX;
+            resizeStartCenterY = edgeResult.zone.centerY;
+            return;
+        }
+        
+        const antiGravityZone = findAntiGravityZoneAt(x, y);
+        if (antiGravityZone) {
+            // Start dragging the anti-gravity zone (no permission required)
+            isDraggingAntiGravityZone = true;
+            draggedAntiGravityZone = antiGravityZone;
+            antiGravityZoneDragOffsetX = x - antiGravityZone.centerX;
+            antiGravityZoneDragOffsetY = y - antiGravityZone.centerY;
+            // Initialize last valid position to current position
+            antiGravityZoneLastValidPosition.x = antiGravityZone.centerX;
+            antiGravityZoneLastValidPosition.y = antiGravityZone.centerY;
+            return;
+        }
+        
+        const multiplierZone = findMultiplierZoneAt(x, y);
+        if (multiplierZone) {
+            // Check if player has permission to drag multiplier zones
+            if (!draggingPermissions.multiplierZone) {
+                return; // No permission to drag
+            }
+            // Start dragging the multiplier zone
+            isDraggingMultiplierZone = true;
+            draggedMultiplierZone = multiplierZone;
+            multiplierZoneDragOffsetX = x - multiplierZone.centerX;
+            multiplierZoneDragOffsetY = y - multiplierZone.centerY;
+            // Initialize last valid position to current position
+            multiplierZoneLastValidPosition.x = multiplierZone.centerX;
+            multiplierZoneLastValidPosition.y = multiplierZone.centerY;
+            return;
+        }
+        
+        const portalZone = findPortalZoneAt(x, y);
+        if (portalZone) {
+            // Check if player has permission to drag portal zones
+            const hasPermission = (portalZone.color === 'blue' && draggingPermissions.portalIn) || 
+                                 (portalZone.color === 'orange' && draggingPermissions.portalOut);
+            if (!hasPermission) {
+                return; // No permission to drag this portal type
+            }
+            // Start dragging the portal zone
+            isDraggingPortalZone = true;
+            draggedPortalZone = portalZone;
+            portalZoneDragOffsetX = x - portalZone.centerX;
+            portalZoneDragOffsetY = y - portalZone.centerY;
+            // Initialize last valid position to current position
+            portalZoneLastValidPosition.x = portalZone.centerX;
+            portalZoneLastValidPosition.y = portalZone.centerY;
+            return;
+        }
+        
+        const cashZone = findCashZoneAt(x, y);
+        if (cashZone) {
+            // Check if player has permission to drag cash zones
+            if (!draggingPermissions.cashZone) {
+                return; // No permission to drag
+            }
+            // Start dragging the cash zone
+            isDraggingCashZone = true;
+            draggedCashZone = cashZone;
+            cashZoneDragOffsetX = x - cashZone.centerX;
+            cashZoneDragOffsetY = y - cashZone.centerY;
+            // Initialize last valid position to current position
+            cashZoneLastValidPosition.x = cashZone.centerX;
+            cashZoneLastValidPosition.y = cashZone.centerY;
+            return;
+        }
+        
+        const levelUpZone = findLevelUpZoneAt(x, y);
+        if (levelUpZone) {
+            // Check if player has permission to drag level up zones
+            if (!draggingPermissions.levelUpZone) {
+                return; // No permission to drag
+            }
+            // Start dragging the level up zone
+            isDraggingLevelUpZone = true;
+            draggedLevelUpZone = levelUpZone;
+            levelUpZoneDragOffsetX = x - levelUpZone.centerX;
+            levelUpZoneDragOffsetY = y - levelUpZone.centerY;
+            // Initialize last valid position to current position
+            levelUpZoneLastValidPosition.x = levelUpZone.centerX;
+            levelUpZoneLastValidPosition.y = levelUpZone.centerY;
             return;
         }
     }
@@ -3408,21 +4435,24 @@ canvas.addEventListener('mousedown', function(event) {
         wallEndX = x;
         wallEndY = y;
     } else if (multiplierPlacementMode) {
-        // Place a multiplier region at the click point
-        createMultiplierRegion(x, y, multiplierFactor);
+        // Place a multiplier zone at the click point
+        createMultiplierZone(x, y, multiplierFactor);
     } else if (portalMode) {
-        // Place a portal region at the click point (left click = blue, right click = orange)
+        // Place a portal zone at the click point (left click = blue, right click = orange)
         if (event.button === 0) { // Left click
-            createPortalRegion(x, y, 'blue');
+            createPortalZone(x, y, 'blue');
         } else if (event.button === 2) { // Right click
-            createPortalRegion(x, y, 'orange');
+            createPortalZone(x, y, 'orange');
         }
     } else if (cashMode) {
-        // Place a cash region at the click point
-        createCashRegion(x, y);
+        // Place a cash zone at the click point
+        createCashZone(x, y);
     } else if (levelUpMode) {
-        // Place a level up region at the click point
-        createLevelUpRegion(x, y);
+        // Place a level up zone at the click point
+        createLevelUpZone(x, y);
+    } else if (antiGravityMode) {
+        // Place an anti-gravity zone at the click point
+        createAntiGravityZone(x, y);
     } else if (currentItemMode === 'wallSquare') {
         // Place a square wall item at the click point
         placeSquareWallItem(x, y);
@@ -3436,11 +4466,11 @@ canvas.addEventListener('mousedown', function(event) {
         // Place a hexagon wall item at the click point
         placeHexagonWallItem(x, y);
     } else if (currentItemMode === 'cash') {
-        // Region items now upgrade existing regions automatically - no click placement needed
+        // Zone items now upgrade existing zones automatically - no click placement needed
     } else if (currentItemMode === 'multiplier') {
-        // Region items now upgrade existing regions automatically - no click placement needed
+        // Zone items now upgrade existing zones automatically - no click placement needed
     } else if (currentItemMode === 'levelUp') {
-        // Region items now upgrade existing regions automatically - no click placement needed
+        // Zone items now upgrade existing zones automatically - no click placement needed
     }
 });
 
@@ -3457,10 +4487,10 @@ canvas.addEventListener('mouseleave', function() {
         isMouseOnCanvas = false;
     }
     hoveredWall = null;
-    hoveredMultiplierRegion = null;
-    hoveredPortalRegion = null;
-    hoveredCashRegion = null;
-    hoveredLevelUpRegion = null;
+    hoveredMultiplierZone = null;
+    hoveredPortalZone = null;
+    hoveredCashZone = null;
+    hoveredLevelUpZone = null;
 });
 
 // Mouse move handler for wall drawing preview and cursor tracking
@@ -3489,58 +4519,322 @@ canvas.addEventListener('mousemove', function(event) {
         return;
     }
     
+    // Handle anti-gravity zone resizing
+    if (isResizingAntiGravityZone && resizedAntiGravityZone) {
+        const zone = resizedAntiGravityZone;
+        const minSize = 20; // Minimum zone dimension
+        
+        let newWidth = zone.width;
+        let newHeight = zone.height;
+        let newCenterX = zone.centerX;
+        let newCenterY = zone.centerY;
+        
+        const deltaX = x - resizeStartX;
+        const deltaY = y - resizeStartY;
+        
+        // Update dimensions and position based on which edge is being dragged
+        if (resizeEdge === 'left') {
+            newWidth = Math.max(minSize, resizeStartWidth - deltaX);
+            newCenterX = resizeStartCenterX + (resizeStartWidth - newWidth) / 2;
+        } else if (resizeEdge === 'right') {
+            newWidth = Math.max(minSize, resizeStartWidth + deltaX);
+            newCenterX = resizeStartCenterX + (newWidth - resizeStartWidth) / 2;
+        } else if (resizeEdge === 'top') {
+            newHeight = Math.max(minSize, resizeStartHeight - deltaY);
+            newCenterY = resizeStartCenterY + (resizeStartHeight - newHeight) / 2;
+        } else if (resizeEdge === 'bottom') {
+            newHeight = Math.max(minSize, resizeStartHeight + deltaY);
+            newCenterY = resizeStartCenterY + (newHeight - resizeStartHeight) / 2;
+        }
+        
+        // Update zone properties
+        zone.width = newWidth;
+        zone.height = newHeight;
+        zone.centerX = newCenterX;
+        zone.centerY = newCenterY;
+        zone.x1 = newCenterX - newWidth / 2;
+        zone.y1 = newCenterY - newHeight / 2;
+        zone.x2 = newCenterX + newWidth / 2;
+        zone.y2 = newCenterY + newHeight / 2;
+        
+        // Update the Matter.js body
+        World.remove(world, zone.body);
+        const newBody = Bodies.rectangle(newCenterX, newCenterY, newWidth, newHeight, {
+            isStatic: true,
+            isSensor: true,
+            angle: zone.rotation || 0,
+            render: {
+                visible: false
+            }
+        });
+        zone.body = newBody;
+        World.add(world, newBody);
+        
+        // Set cursor based on resize edge
+        if (resizeEdge === 'left' || resizeEdge === 'right') {
+            canvas.style.cursor = 'ew-resize';
+        } else {
+            canvas.style.cursor = 'ns-resize';
+        }
+        return;
+    }
+    
+    // Handle anti-gravity zone dragging
+    if (isDraggingAntiGravityZone && draggedAntiGravityZone) {
+        // Update anti-gravity zone position
+        const newCenterX = x - antiGravityZoneDragOffsetX;
+        const newCenterY = y - antiGravityZoneDragOffsetY;
+        
+        // Always update the zone's position properties (allow free movement)
+        draggedAntiGravityZone.centerX = newCenterX;
+        draggedAntiGravityZone.centerY = newCenterY;
+        draggedAntiGravityZone.x1 = newCenterX - draggedAntiGravityZone.width / 2;
+        draggedAntiGravityZone.y1 = newCenterY - draggedAntiGravityZone.height / 2;
+        draggedAntiGravityZone.x2 = newCenterX + draggedAntiGravityZone.width / 2;
+        draggedAntiGravityZone.y2 = newCenterY + draggedAntiGravityZone.height / 2;
+        
+        // Update the Matter.js body position
+        Matter.Body.setPosition(draggedAntiGravityZone.body, { x: newCenterX, y: newCenterY });
+        
+        // Check if the new position is valid and update last valid position
+        if (canPlaceDraggedZone(newCenterX, newCenterY, draggedAntiGravityZone, 'antiGravity')) {
+            // Update last valid position
+            antiGravityZoneLastValidPosition.x = newCenterX;
+            antiGravityZoneLastValidPosition.y = newCenterY;
+            
+            // Update cursor to show dragging
+            canvas.style.cursor = 'grabbing';
+        } else {
+            // Invalid position - show not-allowed cursor
+            canvas.style.cursor = 'not-allowed';
+        }
+        return;
+    }
+    
+    // Handle multiplier zone dragging
+    if (isDraggingMultiplierZone && draggedMultiplierZone) {
+        // Update multiplier zone position
+        const newCenterX = x - multiplierZoneDragOffsetX;
+        const newCenterY = y - multiplierZoneDragOffsetY;
+        
+        // Always update the zone's position properties (allow free movement)
+        draggedMultiplierZone.centerX = newCenterX;
+        draggedMultiplierZone.centerY = newCenterY;
+        draggedMultiplierZone.x1 = newCenterX - draggedMultiplierZone.width / 2;
+        draggedMultiplierZone.y1 = newCenterY - draggedMultiplierZone.height / 2;
+        draggedMultiplierZone.x2 = newCenterX + draggedMultiplierZone.width / 2;
+        draggedMultiplierZone.y2 = newCenterY + draggedMultiplierZone.height / 2;
+        
+        // Update the Matter.js body position
+        Matter.Body.setPosition(draggedMultiplierZone.body, { x: newCenterX, y: newCenterY });
+        
+        // Check if the new position is valid and update last valid position
+        if (canPlaceDraggedZone(newCenterX, newCenterY, draggedMultiplierZone, 'multiplier')) {
+            // Update last valid position
+            multiplierZoneLastValidPosition.x = newCenterX;
+            multiplierZoneLastValidPosition.y = newCenterY;
+            
+            // Update cursor to show dragging
+            canvas.style.cursor = 'grabbing';
+        } else {
+            // Invalid position - show not-allowed cursor
+            canvas.style.cursor = 'not-allowed';
+        }
+        return;
+    }
+    
+    // Handle portal zone dragging
+    if (isDraggingPortalZone && draggedPortalZone) {
+        // Update portal zone position
+        const newCenterX = x - portalZoneDragOffsetX;
+        const newCenterY = y - portalZoneDragOffsetY;
+        
+        // Always update the zone's position properties (allow free movement)
+        draggedPortalZone.centerX = newCenterX;
+        draggedPortalZone.centerY = newCenterY;
+        draggedPortalZone.x1 = newCenterX - draggedPortalZone.width / 2;
+        draggedPortalZone.y1 = newCenterY - draggedPortalZone.height / 2;
+        draggedPortalZone.x2 = newCenterX + draggedPortalZone.width / 2;
+        draggedPortalZone.y2 = newCenterY + draggedPortalZone.height / 2;
+        
+        // Update the Matter.js body position
+        Matter.Body.setPosition(draggedPortalZone.body, { x: newCenterX, y: newCenterY });
+        
+        // Check if the new position is valid and update last valid position
+        if (canPlaceDraggedZone(newCenterX, newCenterY, draggedPortalZone, 'portal')) {
+            // Update last valid position
+            portalZoneLastValidPosition.x = newCenterX;
+            portalZoneLastValidPosition.y = newCenterY;
+            
+            // Update cursor to show dragging
+            canvas.style.cursor = 'grabbing';
+        } else {
+            // Invalid position - show not-allowed cursor
+            canvas.style.cursor = 'not-allowed';
+        }
+        return;
+    }
+    
+    // Handle cash zone dragging
+    if (isDraggingCashZone && draggedCashZone) {
+        // Update cash zone position
+        const newCenterX = x - cashZoneDragOffsetX;
+        const newCenterY = y - cashZoneDragOffsetY;
+        
+        // Always update the zone's position properties (allow free movement)
+        draggedCashZone.centerX = newCenterX;
+        draggedCashZone.centerY = newCenterY;
+        draggedCashZone.x1 = newCenterX - draggedCashZone.width / 2;
+        draggedCashZone.y1 = newCenterY - draggedCashZone.height / 2;
+        draggedCashZone.x2 = newCenterX + draggedCashZone.width / 2;
+        draggedCashZone.y2 = newCenterY + draggedCashZone.height / 2;
+        
+        // Update the Matter.js body position
+        Matter.Body.setPosition(draggedCashZone.body, { x: newCenterX, y: newCenterY });
+        
+        // Check if the new position is valid and update last valid position
+        if (canPlaceDraggedZone(newCenterX, newCenterY, draggedCashZone, 'cash')) {
+            // Update last valid position
+            cashZoneLastValidPosition.x = newCenterX;
+            cashZoneLastValidPosition.y = newCenterY;
+            
+            // Update cursor to show dragging
+            canvas.style.cursor = 'grabbing';
+        } else {
+            // Invalid position - show not-allowed cursor
+            canvas.style.cursor = 'not-allowed';
+        }
+        return;
+    }
+    
+    // Handle level up zone dragging
+    if (isDraggingLevelUpZone && draggedLevelUpZone) {
+        // Update level up zone position
+        const newCenterX = x - levelUpZoneDragOffsetX;
+        const newCenterY = y - levelUpZoneDragOffsetY;
+        
+        // Always update the zone's position properties (allow free movement)
+        draggedLevelUpZone.centerX = newCenterX;
+        draggedLevelUpZone.centerY = newCenterY;
+        draggedLevelUpZone.x1 = newCenterX - draggedLevelUpZone.width / 2;
+        draggedLevelUpZone.y1 = newCenterY - draggedLevelUpZone.height / 2;
+        draggedLevelUpZone.x2 = newCenterX + draggedLevelUpZone.width / 2;
+        draggedLevelUpZone.y2 = newCenterY + draggedLevelUpZone.height / 2;
+        
+        // Update the Matter.js body position
+        Matter.Body.setPosition(draggedLevelUpZone.body, { x: newCenterX, y: newCenterY });
+        
+        // Check if the new position is valid and update last valid position
+        if (canPlaceDraggedZone(newCenterX, newCenterY, draggedLevelUpZone, 'levelUp')) {
+            // Update last valid position
+            levelUpZoneLastValidPosition.x = newCenterX;
+            levelUpZoneLastValidPosition.y = newCenterY;
+            
+            // Update cursor to show dragging
+            canvas.style.cursor = 'grabbing';
+        } else {
+            // Invalid position - show not-allowed cursor
+            canvas.style.cursor = 'not-allowed';
+        }
+        return;
+    }
+    
     // Update hover tracking for remover tool
     if (removerMode) {
         const hovered = getHoveredObject(x, y);
         if (hovered) {
             if (hovered.type === 'wall') {
                 hoveredWall = hovered.object;
-                hoveredMultiplierRegion = null;
-                hoveredPortalRegion = null;
-                hoveredCashRegion = null;
-                hoveredLevelUpRegion = null;
+                hoveredMultiplierZone = null;
+                hoveredPortalZone = null;
+                hoveredCashZone = null;
+                hoveredLevelUpZone = null;
             } else if (hovered.type === 'multiplier') {
-                hoveredMultiplierRegion = hovered.object;
+                hoveredMultiplierZone = hovered.object;
                 hoveredWall = null;
-                hoveredPortalRegion = null;
-                hoveredCashRegion = null;
-                hoveredLevelUpRegion = null;
+                hoveredPortalZone = null;
+                hoveredCashZone = null;
+                hoveredLevelUpZone = null;
             } else if (hovered.type === 'portal') {
-                hoveredPortalRegion = hovered.object;
+                hoveredPortalZone = hovered.object;
                 hoveredWall = null;
-                hoveredMultiplierRegion = null;
-                hoveredCashRegion = null;
-                hoveredLevelUpRegion = null;
+                hoveredMultiplierZone = null;
+                hoveredCashZone = null;
+                hoveredLevelUpZone = null;
             } else if (hovered.type === 'cash') {
-                hoveredCashRegion = hovered.object;
+                hoveredCashZone = hovered.object;
                 hoveredWall = null;
-                hoveredMultiplierRegion = null;
-                hoveredPortalRegion = null;
-                hoveredLevelUpRegion = null;
+                hoveredMultiplierZone = null;
+                hoveredPortalZone = null;
+                hoveredLevelUpZone = null;
             } else if (hovered.type === 'levelUp') {
-                hoveredLevelUpRegion = hovered.object;
+                hoveredLevelUpZone = hovered.object;
                 hoveredWall = null;
-                hoveredMultiplierRegion = null;
-                hoveredPortalRegion = null;
-                hoveredCashRegion = null;
+                hoveredMultiplierZone = null;
+                hoveredPortalZone = null;
+                hoveredCashZone = null;
+            } else if (hovered.type === 'antiGravity') {
+                hoveredAntiGravityZone = hovered.object;
+                hoveredWall = null;
+                hoveredMultiplierZone = null;
+                hoveredPortalZone = null;
+                hoveredCashZone = null;
+                hoveredLevelUpZone = null;
             }
         } else {
             hoveredWall = null;
-            hoveredMultiplierRegion = null;
-            hoveredPortalRegion = null;
-            hoveredCashRegion = null;
-            hoveredLevelUpRegion = null;
+            hoveredMultiplierZone = null;
+            hoveredPortalZone = null;
+            hoveredCashZone = null;
+            hoveredLevelUpZone = null;
+            hoveredAntiGravityZone = null;
         }
     } else {
         hoveredWall = null;
-        hoveredMultiplierRegion = null;
-        hoveredPortalRegion = null;
-        hoveredCashRegion = null;
-        hoveredLevelUpRegion = null;
+        hoveredMultiplierZone = null;
+        hoveredPortalZone = null;
+        hoveredCashZone = null;
+        hoveredLevelUpZone = null;
+        hoveredAntiGravityZone = null;
         
-        // Check if hovering over a wall for potential dragging
+        // Check if hovering over a wall or any zone for potential dragging
         const wall = findWallAt(x, y);
-        canvas.style.cursor = wall ? 'grab' : 'crosshair';
+        const antiGravityZone = findAntiGravityZoneAt(x, y);
+        const multiplierZone = findMultiplierZoneAt(x, y);
+        const portalZone = findPortalZoneAt(x, y);
+        const cashZone = findCashZoneAt(x, y);
+        const levelUpZone = findLevelUpZoneAt(x, y);
+        
+        // Check if hovering over an edge for resizing
+        const edgeResult = findAntiGravityZoneEdgeAt(x, y);
+        if (edgeResult) {
+            // Show resize cursor based on edge
+            if (edgeResult.edge === 'left' || edgeResult.edge === 'right') {
+                canvas.style.cursor = 'ew-resize';
+            } else {
+                canvas.style.cursor = 'ns-resize';
+            }
+        } else {
+            // Check if any draggable object is found and if player has permission
+            let canDrag = false;
+            if (wall) {
+                canDrag = true; // Walls are always draggable
+            } else if (antiGravityZone) {
+                canDrag = true;
+            } else if (multiplierZone && draggingPermissions.multiplierZone) {
+                canDrag = true;
+            } else if (portalZone) {
+                const hasPermission = (portalZone.color === 'blue' && draggingPermissions.portalIn) || 
+                                     (portalZone.color === 'orange' && draggingPermissions.portalOut);
+                if (hasPermission) canDrag = true;
+            } else if (cashZone && draggingPermissions.cashZone) {
+                canDrag = true;
+            } else if (levelUpZone && draggingPermissions.levelUpZone) {
+                canDrag = true;
+            }
+            
+            canvas.style.cursor = canDrag ? 'grab' : 'crosshair';
+        }
     }
     
     if (wallDrawingMode && isDrawingWall) {
@@ -3569,6 +4863,136 @@ canvas.addEventListener('mouseup', function(event) {
         draggedWall = null;
         dragOffsetX = 0;
         dragOffsetY = 0;
+        return;
+    }
+    
+    // Stop anti-gravity zone resizing
+    if (isResizingAntiGravityZone) {
+        isResizingAntiGravityZone = false;
+        resizedAntiGravityZone = null;
+        resizeEdge = null;
+        resizeStartX = 0;
+        resizeStartY = 0;
+        resizeStartWidth = 0;
+        resizeStartHeight = 0;
+        resizeStartCenterX = 0;
+        resizeStartCenterY = 0;
+        canvas.style.cursor = 'crosshair';
+        return;
+    }
+    
+    // Stop anti-gravity zone dragging
+    if (isDraggingAntiGravityZone) {
+        // Check if final position is valid, if not snap back to last valid position
+        if (draggedAntiGravityZone && !canPlaceDraggedZone(draggedAntiGravityZone.centerX, draggedAntiGravityZone.centerY, draggedAntiGravityZone, 'antiGravity')) {
+            // Snap back to last valid position
+            draggedAntiGravityZone.centerX = antiGravityZoneLastValidPosition.x;
+            draggedAntiGravityZone.centerY = antiGravityZoneLastValidPosition.y;
+            draggedAntiGravityZone.x1 = antiGravityZoneLastValidPosition.x - draggedAntiGravityZone.width / 2;
+            draggedAntiGravityZone.y1 = antiGravityZoneLastValidPosition.y - draggedAntiGravityZone.height / 2;
+            draggedAntiGravityZone.x2 = antiGravityZoneLastValidPosition.x + draggedAntiGravityZone.width / 2;
+            draggedAntiGravityZone.y2 = antiGravityZoneLastValidPosition.y + draggedAntiGravityZone.height / 2;
+            
+            // Update the Matter.js body position
+            Matter.Body.setPosition(draggedAntiGravityZone.body, { x: antiGravityZoneLastValidPosition.x, y: antiGravityZoneLastValidPosition.y });
+        }
+        
+        isDraggingAntiGravityZone = false;
+        draggedAntiGravityZone = null;
+        antiGravityZoneDragOffsetX = 0;
+        antiGravityZoneDragOffsetY = 0;
+        return;
+    }
+    
+    // Stop multiplier zone dragging
+    if (isDraggingMultiplierZone) {
+        // Check if final position is valid, if not snap back to last valid position
+        if (draggedMultiplierZone && !canPlaceDraggedZone(draggedMultiplierZone.centerX, draggedMultiplierZone.centerY, draggedMultiplierZone, 'multiplier')) {
+            // Snap back to last valid position
+            draggedMultiplierZone.centerX = multiplierZoneLastValidPosition.x;
+            draggedMultiplierZone.centerY = multiplierZoneLastValidPosition.y;
+            draggedMultiplierZone.x1 = multiplierZoneLastValidPosition.x - draggedMultiplierZone.width / 2;
+            draggedMultiplierZone.y1 = multiplierZoneLastValidPosition.y - draggedMultiplierZone.height / 2;
+            draggedMultiplierZone.x2 = multiplierZoneLastValidPosition.x + draggedMultiplierZone.width / 2;
+            draggedMultiplierZone.y2 = multiplierZoneLastValidPosition.y + draggedMultiplierZone.height / 2;
+            
+            // Update the Matter.js body position
+            Matter.Body.setPosition(draggedMultiplierZone.body, { x: multiplierZoneLastValidPosition.x, y: multiplierZoneLastValidPosition.y });
+        }
+        
+        isDraggingMultiplierZone = false;
+        draggedMultiplierZone = null;
+        multiplierZoneDragOffsetX = 0;
+        multiplierZoneDragOffsetY = 0;
+        return;
+    }
+    
+    // Stop portal zone dragging
+    if (isDraggingPortalZone) {
+        // Check if final position is valid, if not snap back to last valid position
+        if (draggedPortalZone && !canPlaceDraggedZone(draggedPortalZone.centerX, draggedPortalZone.centerY, draggedPortalZone, 'portal')) {
+            // Snap back to last valid position
+            draggedPortalZone.centerX = portalZoneLastValidPosition.x;
+            draggedPortalZone.centerY = portalZoneLastValidPosition.y;
+            draggedPortalZone.x1 = portalZoneLastValidPosition.x - draggedPortalZone.width / 2;
+            draggedPortalZone.y1 = portalZoneLastValidPosition.y - draggedPortalZone.height / 2;
+            draggedPortalZone.x2 = portalZoneLastValidPosition.x + draggedPortalZone.width / 2;
+            draggedPortalZone.y2 = portalZoneLastValidPosition.y + draggedPortalZone.height / 2;
+            
+            // Update the Matter.js body position
+            Matter.Body.setPosition(draggedPortalZone.body, { x: portalZoneLastValidPosition.x, y: portalZoneLastValidPosition.y });
+        }
+        
+        isDraggingPortalZone = false;
+        draggedPortalZone = null;
+        portalZoneDragOffsetX = 0;
+        portalZoneDragOffsetY = 0;
+        return;
+    }
+    
+    // Stop cash zone dragging
+    if (isDraggingCashZone) {
+        // Check if final position is valid, if not snap back to last valid position
+        if (draggedCashZone && !canPlaceDraggedZone(draggedCashZone.centerX, draggedCashZone.centerY, draggedCashZone, 'cash')) {
+            // Snap back to last valid position
+            draggedCashZone.centerX = cashZoneLastValidPosition.x;
+            draggedCashZone.centerY = cashZoneLastValidPosition.y;
+            draggedCashZone.x1 = cashZoneLastValidPosition.x - draggedCashZone.width / 2;
+            draggedCashZone.y1 = cashZoneLastValidPosition.y - draggedCashZone.height / 2;
+            draggedCashZone.x2 = cashZoneLastValidPosition.x + draggedCashZone.width / 2;
+            draggedCashZone.y2 = cashZoneLastValidPosition.y + draggedCashZone.height / 2;
+            
+            // Update the Matter.js body position
+            Matter.Body.setPosition(draggedCashZone.body, { x: cashZoneLastValidPosition.x, y: cashZoneLastValidPosition.y });
+        }
+        
+        isDraggingCashZone = false;
+        draggedCashZone = null;
+        cashZoneDragOffsetX = 0;
+        cashZoneDragOffsetY = 0;
+        return;
+    }
+    
+    // Stop level up zone dragging
+    if (isDraggingLevelUpZone) {
+        // Check if final position is valid, if not snap back to last valid position
+        if (draggedLevelUpZone && !canPlaceDraggedZone(draggedLevelUpZone.centerX, draggedLevelUpZone.centerY, draggedLevelUpZone, 'levelUp')) {
+            // Snap back to last valid position
+            draggedLevelUpZone.centerX = levelUpZoneLastValidPosition.x;
+            draggedLevelUpZone.centerY = levelUpZoneLastValidPosition.y;
+            draggedLevelUpZone.x1 = levelUpZoneLastValidPosition.x - draggedLevelUpZone.width / 2;
+            draggedLevelUpZone.y1 = levelUpZoneLastValidPosition.y - draggedLevelUpZone.height / 2;
+            draggedLevelUpZone.x2 = levelUpZoneLastValidPosition.x + draggedLevelUpZone.width / 2;
+            draggedLevelUpZone.y2 = levelUpZoneLastValidPosition.y + draggedLevelUpZone.height / 2;
+            
+            // Update the Matter.js body position
+            Matter.Body.setPosition(draggedLevelUpZone.body, { x: levelUpZoneLastValidPosition.x, y: levelUpZoneLastValidPosition.y });
+        }
+        
+        isDraggingLevelUpZone = false;
+        draggedLevelUpZone = null;
+        levelUpZoneDragOffsetX = 0;
+        levelUpZoneDragOffsetY = 0;
         return;
     }
     
@@ -3604,7 +5028,7 @@ canvas.addEventListener('mousedown', function(event) {
     }
 });
 
-// Mouse wheel handler for wall item and region item rotation
+// Mouse wheel handler for wall item and zone item rotation
 canvas.addEventListener('wheel', function(event) {
     if (isPaused) return;
     
@@ -3632,6 +5056,131 @@ canvas.addEventListener('wheel', function(event) {
         return;
     }
     
+    // Handle wheel events when dragging an anti-gravity zone
+    if (isDraggingAntiGravityZone && draggedAntiGravityZone) {
+        event.preventDefault();
+        
+        // Adjust rotation based on wheel direction
+        const rotationStep = 0.1; // radians (about 5.7 degrees)
+        let newAngle = draggedAntiGravityZone.rotation;
+        
+        if (event.deltaY < 0) {
+            // Scroll up - increase rotation
+            newAngle += rotationStep;
+        } else {
+            // Scroll down - decrease rotation
+            newAngle -= rotationStep;
+        }
+        
+        // Keep rotation between 0 and 2π
+        newAngle = ((newAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        
+        // Update the zone's rotation
+        draggedAntiGravityZone.rotation = newAngle;
+        Matter.Body.setAngle(draggedAntiGravityZone.body, newAngle);
+        return;
+    }
+    
+    // Handle wheel events when dragging a multiplier zone
+    if (isDraggingMultiplierZone && draggedMultiplierZone) {
+        event.preventDefault();
+        
+        // Adjust rotation based on wheel direction
+        const rotationStep = 0.1; // radians (about 5.7 degrees)
+        let newAngle = draggedMultiplierZone.rotation;
+        
+        if (event.deltaY < 0) {
+            // Scroll up - increase rotation
+            newAngle += rotationStep;
+        } else {
+            // Scroll down - decrease rotation
+            newAngle -= rotationStep;
+        }
+        
+        // Keep rotation between 0 and 2π
+        newAngle = ((newAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        
+        // Update the zone's rotation
+        draggedMultiplierZone.rotation = newAngle;
+        Matter.Body.setAngle(draggedMultiplierZone.body, newAngle);
+        return;
+    }
+    
+    // Handle wheel events when dragging a portal zone
+    if (isDraggingPortalZone && draggedPortalZone) {
+        event.preventDefault();
+        
+        // Adjust rotation based on wheel direction
+        const rotationStep = 0.1; // radians (about 5.7 degrees)
+        let newAngle = draggedPortalZone.rotation;
+        
+        if (event.deltaY < 0) {
+            // Scroll up - increase rotation
+            newAngle += rotationStep;
+        } else {
+            // Scroll down - decrease rotation
+            newAngle -= rotationStep;
+        }
+        
+        // Keep rotation between 0 and 2π
+        newAngle = ((newAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        
+        // Update the zone's rotation
+        draggedPortalZone.rotation = newAngle;
+        Matter.Body.setAngle(draggedPortalZone.body, newAngle);
+        return;
+    }
+    
+    // Handle wheel events when dragging a cash zone
+    if (isDraggingCashZone && draggedCashZone) {
+        event.preventDefault();
+        
+        // Adjust rotation based on wheel direction
+        const rotationStep = 0.1; // radians (about 5.7 degrees)
+        let newAngle = draggedCashZone.rotation;
+        
+        if (event.deltaY < 0) {
+            // Scroll up - increase rotation
+            newAngle += rotationStep;
+        } else {
+            // Scroll down - decrease rotation
+            newAngle -= rotationStep;
+        }
+        
+        // Keep rotation between 0 and 2π
+        newAngle = ((newAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        
+        // Update the zone's rotation
+        draggedCashZone.rotation = newAngle;
+        Matter.Body.setAngle(draggedCashZone.body, newAngle);
+        return;
+    }
+    
+    // Handle wheel events when dragging a level up zone
+    if (isDraggingLevelUpZone && draggedLevelUpZone) {
+        event.preventDefault();
+        
+        // Adjust rotation based on wheel direction
+        const rotationStep = 0.1; // radians (about 5.7 degrees)
+        let newAngle = draggedLevelUpZone.rotation;
+        
+        if (event.deltaY < 0) {
+            // Scroll up - increase rotation
+            newAngle += rotationStep;
+        } else {
+            // Scroll down - decrease rotation
+            newAngle -= rotationStep;
+        }
+        
+        // Keep rotation between 0 and 2π
+        newAngle = ((newAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        
+        // Update the zone's rotation
+        draggedLevelUpZone.rotation = newAngle;
+        Matter.Body.setAngle(draggedLevelUpZone.body, newAngle);
+        return;
+    }
+    
     // Handle wheel events when in wall item mode
     if (currentItemMode === 'wallSquare' || currentItemMode === 'wallTriangle' || currentItemMode === 'wallHexagon') {
         event.preventDefault();
@@ -3649,22 +5198,22 @@ canvas.addEventListener('wheel', function(event) {
         // Keep rotation between 0 and 2π
         wallItemRotation = ((wallItemRotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
     }
-    // Handle wheel events when in region item mode
-    else if (currentItemMode === 'cash' || currentItemMode === 'multiplier' || currentItemMode === 'levelUp') {
+    // Handle wheel events when in zone item mode
+    else if (currentItemMode === 'cash' || currentItemMode === 'multiplier' || currentItemMode === 'levelUp' || currentItemMode === 'antiGravity') {
         event.preventDefault();
         
         // Adjust rotation based on wheel direction
         const rotationStep = 0.1; // radians (about 5.7 degrees)
         if (event.deltaY < 0) {
             // Scroll up - increase rotation
-            regionItemRotation += rotationStep;
+            zoneItemRotation += rotationStep;
         } else {
             // Scroll down - decrease rotation
-            regionItemRotation -= rotationStep;
+            zoneItemRotation -= rotationStep;
         }
         
         // Keep rotation between 0 and 2π
-        regionItemRotation = ((regionItemRotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        zoneItemRotation = ((zoneItemRotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
     }
 });
 
@@ -3690,7 +5239,7 @@ function render() {
     bodies.forEach(body => {
         if (body.render.visible === false) return;
         
-        // Skip sensor bodies (regions) - they're drawn manually
+        // Skip sensor bodies (zones) - they're drawn manually
         if (body.isSensor) return;
         
         // Check if this wall is being hovered over in remover mode or being dragged
@@ -3736,39 +5285,57 @@ function render() {
         ctx.stroke();
     });
     
-    // Draw portal regions
-    portalRegions.forEach(region => {
-        // Calculate center of region
-        const centerX = (region.x1 + region.x2) / 2;
-        const centerY = (region.y1 + region.y2) / 2;
+    // Draw portal zones
+    portalZones.forEach(zone => {
+        // Calculate center of zone
+        const centerX = (zone.x1 + zone.x2) / 2;
+        const centerY = (zone.y1 + zone.y2) / 2;
         
-        // Check if this region is being hovered over in remover mode
-        const isHovered = removerMode && hoveredPortalRegion === region;
+        // Check if this zone is being hovered over in remover mode or being dragged
+        const isHovered = removerMode && hoveredPortalZone === zone;
+        const isDragged = isDraggingPortalZone && draggedPortalZone === zone;
         
-        // Draw the region rectangle
+        // Draw the zone rectangle
         ctx.beginPath();
-        ctx.rect(region.x1, region.y1, region.x2 - region.x1, region.y2 - region.y1);
+        ctx.rect(zone.x1, zone.y1, zone.x2 - zone.x1, zone.y2 - zone.y1);
         
-        // Set color based on portal type and hover state
+        // Set color based on portal type, hover state, and drag state
         if (isHovered) {
             ctx.fillStyle = `rgba(255, 71, 87, 0.5)`; // Red if hovered
-        } else if (region.color === 'blue') {
-            ctx.fillStyle = REGION_CONFIG.portal.colors.blue;
+        } else if (isDragged) {
+            // Check if current position is valid
+            const isValidPosition = canPlaceDraggedZone(centerX, centerY, zone, 'portal');
+            if (isValidPosition) {
+                ctx.fillStyle = zone.color === 'blue' ? 
+                    'rgba(0, 123, 255, 0.6)' : 'rgba(255, 165, 0, 0.6)'; // Brighter when valid
+            } else {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.4)'; // Red tint when invalid
+            }
+        } else if (zone.color === 'blue') {
+            ctx.fillStyle = ZONE_CONFIG.portal.colors.blue;
         } else {
-            ctx.fillStyle = REGION_CONFIG.portal.colors.orange;
+            ctx.fillStyle = ZONE_CONFIG.portal.colors.orange;
         }
         ctx.fill();
         
         // Set border color
         if (isHovered) {
             ctx.strokeStyle = COLORS.hover; // Red if hovered
-        } else if (region.color === 'blue') {
-            ctx.strokeStyle = REGION_CONFIG.portal.borders.blue;
+        } else if (isDragged) {
+            // Check if current position is valid
+            const isValidPosition = canPlaceDraggedZone(centerX, centerY, zone, 'portal');
+            if (isValidPosition) {
+                ctx.strokeStyle = zone.color === 'blue' ? '#007bff' : '#ffa500'; // Normal colors when valid
+            } else {
+                ctx.strokeStyle = '#ff0000'; // Red border when invalid
+            }
+        } else if (zone.color === 'blue') {
+            ctx.strokeStyle = ZONE_CONFIG.portal.borders.blue;
         } else {
-            ctx.strokeStyle = REGION_CONFIG.portal.borders.orange;
+            ctx.strokeStyle = ZONE_CONFIG.portal.borders.orange;
         }
-        ctx.lineWidth = isHovered ? 3 : REGION_CONFIG.portal.lineWidth;
-        ctx.setLineDash(REGION_CONFIG.portal.dash);
+        ctx.lineWidth = (isHovered || isDragged) ? 3 : ZONE_CONFIG.portal.lineWidth;
+        ctx.setLineDash(ZONE_CONFIG.portal.dash);
         ctx.stroke();
         ctx.setLineDash([]); // Reset line dash
         
@@ -3780,7 +5347,7 @@ function render() {
         // Draw black outline
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        const labelText = region.color === 'blue' ? 'IN' : 'OUT';
+        const labelText = zone.color === 'blue' ? 'IN' : 'OUT';
         ctx.strokeText(labelText, centerX, centerY);
         
         // Draw light text
@@ -3788,20 +5355,21 @@ function render() {
         ctx.fillText(labelText, centerX, centerY);
     });
     
-    // Draw multiplier regions
-    multiplierRegions.forEach(region => {
-        // Calculate center of region
-        const centerX = region.centerX || (region.x1 + region.x2) / 2;
-        const centerY = region.centerY || (region.y1 + region.y2) / 2;
-        const width = region.width || (region.x2 - region.x1);
-        const height = region.height || (region.y2 - region.y1);
-        const rotation = region.rotation || 0;
+    // Draw multiplier zones
+    multiplierZones.forEach(zone => {
+        // Calculate center of zone
+        const centerX = zone.centerX || (zone.x1 + zone.x2) / 2;
+        const centerY = zone.centerY || (zone.y1 + zone.y2) / 2;
+        const width = zone.width || (zone.x2 - zone.x1);
+        const height = zone.height || (zone.y2 - zone.y1);
+        const rotation = zone.rotation || 0;
         
-        // Check if this region is being hovered over in remover mode
-        const isHovered = removerMode && hoveredMultiplierRegion === region;
+        // Check if this zone is being hovered over in remover mode or being dragged
+        const isHovered = removerMode && hoveredMultiplierZone === zone;
+        const isDragged = isDraggingMultiplierZone && draggedMultiplierZone === zone;
         
-        // Draw the rotated region rectangle
-        if (false) { // Level-up preview removed - regions now upgrade automatically
+        // Draw the rotated zone rectangle
+        if (false) { // Level-up preview removed - zones now upgrade automatically
             // Show upgraded version with breathing effect
             const time = Date.now() * 0.005; // Slow breathing
             const scale = 1 + Math.sin(time) * 0.1; // 10% size variation
@@ -3812,14 +5380,14 @@ function render() {
             ctx.scale(scale, scale);
             ctx.translate(-width/2, -height/2);
             
-            // Draw the region rectangle with upgrade colors
+            // Draw the zone rectangle with upgrade colors
             ctx.beginPath();
             ctx.rect(0, 0, width, height);
             ctx.fillStyle = 'rgba(0, 255, 0, 0.7)'; // Green for upgrade
             ctx.strokeStyle = '#00ff00';
             ctx.fill();
-            ctx.lineWidth = REGION_CONFIG.multiplier.lineWidth;
-            ctx.setLineDash(REGION_CONFIG.multiplier.dash);
+            ctx.lineWidth = ZONE_CONFIG.multiplier.lineWidth;
+            ctx.setLineDash(ZONE_CONFIG.multiplier.dash);
             ctx.stroke();
             ctx.setLineDash([]); // Reset line dash
             ctx.restore();
@@ -3829,7 +5397,7 @@ function render() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            const newFactor = region.factor + 1; // Show upgraded factor
+            const newFactor = zone.factor + 1; // Show upgraded factor
             const displayText = `×${newFactor}`;
             
             // Draw black outline
@@ -3842,6 +5410,29 @@ function render() {
             ctx.fillText(displayText, centerX, centerY);
         } else {
             // Normal drawing
+            let fillColor, borderColor, lineWidth;
+            
+            if (isHovered) {
+                fillColor = `rgba(255, 71, 87, 0.5)`;
+                borderColor = COLORS.hover;
+                lineWidth = 3;
+            } else if (isDragged) {
+                // Check if current position is valid
+                const isValidPosition = canPlaceDraggedZone(centerX, centerY, zone, 'multiplier');
+                if (isValidPosition) {
+                    fillColor = 'rgba(156, 136, 255, 0.6)'; // Brighter when valid
+                    borderColor = ZONE_CONFIG.multiplier.borderColor;
+                } else {
+                    fillColor = 'rgba(255, 0, 0, 0.4)'; // Red tint when invalid
+                    borderColor = '#ff0000'; // Red border when invalid
+                }
+                lineWidth = 3;
+            } else {
+                fillColor = ZONE_CONFIG.multiplier.color;
+                borderColor = ZONE_CONFIG.multiplier.borderColor;
+                lineWidth = ZONE_CONFIG.multiplier.lineWidth;
+            }
+            
             drawRotatedRect(
                 ctx, 
                 centerX, 
@@ -3849,10 +5440,10 @@ function render() {
                 width, 
                 height, 
                 rotation,
-                isHovered ? `rgba(255, 71, 87, 0.5)` : REGION_CONFIG.multiplier.color,
-                isHovered ? COLORS.hover : REGION_CONFIG.multiplier.borderColor,
-                isHovered ? 3 : REGION_CONFIG.multiplier.lineWidth,
-                REGION_CONFIG.multiplier.dash
+                fillColor,
+                borderColor,
+                lineWidth,
+                ZONE_CONFIG.multiplier.dash
             );
             
             // Draw multiplier factor text (unrotated)
@@ -3863,35 +5454,36 @@ function render() {
             // Draw black outline
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 3;
-            ctx.strokeText(`×${region.factor}`, centerX, centerY);
+            ctx.strokeText(`×${zone.factor}`, centerX, centerY);
             
             // Draw light text
             ctx.fillStyle = '#e0e0e0';
-            ctx.fillText(`×${region.factor}`, centerX, centerY);
+            ctx.fillText(`×${zone.factor}`, centerX, centerY);
         }
     });
     
-    // Draw cash regions
-    cashRegions.forEach(region => {
-        // Calculate center of region
-        const centerX = region.centerX || (region.x1 + region.x2) / 2;
-        const centerY = region.centerY || (region.y1 + region.y2) / 2;
-        const width = region.width || (region.x2 - region.x1);
-        const height = region.height || (region.y2 - region.y1);
-        const rotation = region.rotation || 0;
+    // Draw cash zones
+    cashZones.forEach(zone => {
+        // Calculate center of zone
+        const centerX = zone.centerX || (zone.x1 + zone.x2) / 2;
+        const centerY = zone.centerY || (zone.y1 + zone.y2) / 2;
+        const width = zone.width || (zone.x2 - zone.x1);
+        const height = zone.height || (zone.y2 - zone.y1);
+        const rotation = zone.rotation || 0;
         
-        // Check if this region is being leveled up (show upgraded version)
+        // Check if this zone is being leveled up (show upgraded version)
         let isBeingLeveledUp = false;
         if (currentItemMode === 'cash' && isMouseOnCanvas) {
-            const placementInfo = checkRegionPlacement(mouseX, mouseY, 'cash');
-            isBeingLeveledUp = placementInfo.levelUpTarget === region;
+            const placementInfo = checkZonePlacement(mouseX, mouseY, 'cash');
+            isBeingLeveledUp = placementInfo.levelUpTarget === zone;
         }
         
-        // Check if this region is being hovered over in remover mode
-        const isHovered = removerMode && hoveredCashRegion === region;
+        // Check if this zone is being hovered over in remover mode or being dragged
+        const isHovered = removerMode && hoveredCashZone === zone;
+        const isDragged = isDraggingCashZone && draggedCashZone === zone;
         
-        // Draw the rotated region rectangle
-        if (false) { // Level-up preview removed - regions now upgrade automatically
+        // Draw the rotated zone rectangle
+        if (false) { // Level-up preview removed - zones now upgrade automatically
             // Show upgraded version with breathing effect
             const time = Date.now() * 0.005; // Slow breathing
             const scale = 1 + Math.sin(time) * 0.1; // 10% size variation
@@ -3902,14 +5494,14 @@ function render() {
             ctx.scale(scale, scale);
             ctx.translate(-width/2, -height/2);
             
-            // Draw the region rectangle with upgrade colors
+            // Draw the zone rectangle with upgrade colors
             ctx.beginPath();
             ctx.rect(0, 0, width, height);
             ctx.fillStyle = 'rgba(0, 255, 0, 0.7)'; // Green for upgrade
             ctx.strokeStyle = '#00ff00';
             ctx.fill();
-            ctx.lineWidth = REGION_CONFIG.cash.lineWidth;
-            ctx.setLineDash(REGION_CONFIG.cash.dash);
+            ctx.lineWidth = ZONE_CONFIG.cash.lineWidth;
+            ctx.setLineDash(ZONE_CONFIG.cash.dash);
             ctx.stroke();
             ctx.setLineDash([]); // Reset line dash
             ctx.restore();
@@ -3919,7 +5511,7 @@ function render() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            const displayText = `💵${region.level + 1}`; // Show upgraded level
+            const displayText = `💵${zone.level + 1}`; // Show upgraded level
             
             // Draw black outline
             ctx.strokeStyle = '#000000';
@@ -3931,6 +5523,29 @@ function render() {
             ctx.fillText(displayText, centerX, centerY);
         } else {
             // Normal drawing
+            let fillColor, borderColor, lineWidth;
+            
+            if (isHovered) {
+                fillColor = `rgba(255, 71, 87, 0.5)`;
+                borderColor = COLORS.hover;
+                lineWidth = 3;
+            } else if (isDragged) {
+                // Check if current position is valid
+                const isValidPosition = canPlaceDraggedZone(centerX, centerY, zone, 'cash');
+                if (isValidPosition) {
+                    fillColor = 'rgba(46, 213, 115, 0.6)'; // Brighter when valid
+                    borderColor = ZONE_CONFIG.cash.borderColor;
+                } else {
+                    fillColor = 'rgba(255, 0, 0, 0.4)'; // Red tint when invalid
+                    borderColor = '#ff0000'; // Red border when invalid
+                }
+                lineWidth = 3;
+            } else {
+                fillColor = ZONE_CONFIG.cash.color;
+                borderColor = ZONE_CONFIG.cash.borderColor;
+                lineWidth = ZONE_CONFIG.cash.lineWidth;
+            }
+            
             drawRotatedRect(
                 ctx, 
                 centerX, 
@@ -3938,10 +5553,10 @@ function render() {
                 width, 
                 height, 
                 rotation,
-                isHovered ? `rgba(255, 71, 87, 0.5)` : REGION_CONFIG.cash.color,
-                isHovered ? COLORS.hover : REGION_CONFIG.cash.borderColor,
-                isHovered ? 3 : REGION_CONFIG.cash.lineWidth,
-                REGION_CONFIG.cash.dash
+                fillColor,
+                borderColor,
+                lineWidth,
+                ZONE_CONFIG.cash.dash
             );
             
             // Draw dollar bill emoji with level (unrotated)
@@ -3949,7 +5564,7 @@ function render() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            const displayText = `💵${region.level}`;
+            const displayText = `💵${zone.level}`;
             
             // Draw black outline
             ctx.strokeStyle = '#000000';
@@ -3962,27 +5577,28 @@ function render() {
         }
     });
     
-    // Draw level up regions
-    levelUpRegions.forEach(region => {
-        // Calculate center of region
-        const centerX = region.centerX || (region.x1 + region.x2) / 2;
-        const centerY = region.centerY || (region.y1 + region.y2) / 2;
-        const width = region.width || (region.x2 - region.x1);
-        const height = region.height || (region.y2 - region.y1);
-        const rotation = region.rotation || 0;
+    // Draw level up zones
+    levelUpZones.forEach(zone => {
+        // Calculate center of zone
+        const centerX = zone.centerX || (zone.x1 + zone.x2) / 2;
+        const centerY = zone.centerY || (zone.y1 + zone.y2) / 2;
+        const width = zone.width || (zone.x2 - zone.x1);
+        const height = zone.height || (zone.y2 - zone.y1);
+        const rotation = zone.rotation || 0;
         
-        // Check if this region is being leveled up (show upgraded version)
+        // Check if this zone is being leveled up (show upgraded version)
         let isBeingLeveledUp = false;
         if (currentItemMode === 'levelUp' && isMouseOnCanvas) {
-            const placementInfo = checkRegionPlacement(mouseX, mouseY, 'levelUp');
-            isBeingLeveledUp = placementInfo.levelUpTarget === region;
+            const placementInfo = checkZonePlacement(mouseX, mouseY, 'levelUp');
+            isBeingLeveledUp = placementInfo.levelUpTarget === zone;
         }
         
-        // Check if this region is being hovered over in remover mode
-        const isHovered = removerMode && hoveredLevelUpRegion === region;
+        // Check if this zone is being hovered over in remover mode or being dragged
+        const isHovered = removerMode && hoveredLevelUpZone === zone;
+        const isDragged = isDraggingLevelUpZone && draggedLevelUpZone === zone;
         
-        // Draw the rotated region rectangle
-        if (false) { // Level-up preview removed - regions now upgrade automatically
+        // Draw the rotated zone rectangle
+        if (false) { // Level-up preview removed - zones now upgrade automatically
             // Show upgraded version with breathing effect
             const time = Date.now() * 0.005; // Slow breathing
             const scale = 1 + Math.sin(time) * 0.1; // 10% size variation
@@ -3993,14 +5609,14 @@ function render() {
             ctx.scale(scale, scale);
             ctx.translate(-width/2, -height/2);
             
-            // Draw the region rectangle with upgrade colors
+            // Draw the zone rectangle with upgrade colors
             ctx.beginPath();
             ctx.rect(0, 0, width, height);
             ctx.fillStyle = 'rgba(0, 255, 0, 0.7)'; // Green for upgrade
             ctx.strokeStyle = '#00ff00';
             ctx.fill();
-            ctx.lineWidth = REGION_CONFIG.levelUp.lineWidth;
-            ctx.setLineDash(REGION_CONFIG.levelUp.dash);
+            ctx.lineWidth = ZONE_CONFIG.levelUp.lineWidth;
+            ctx.setLineDash(ZONE_CONFIG.levelUp.dash);
             ctx.stroke();
             ctx.setLineDash([]); // Reset line dash
             ctx.restore();
@@ -4010,7 +5626,7 @@ function render() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            const displayText = `+${region.level + 1}`; // Show upgraded level
+            const displayText = `+${zone.level + 1}`; // Show upgraded level
             
             // Draw black outline
             ctx.strokeStyle = '#000000';
@@ -4022,6 +5638,29 @@ function render() {
             ctx.fillText(displayText, centerX, centerY);
         } else {
             // Normal drawing
+            let fillColor, borderColor, lineWidth;
+            
+            if (isHovered) {
+                fillColor = `rgba(255, 71, 87, 0.5)`;
+                borderColor = COLORS.hover;
+                lineWidth = 3;
+            } else if (isDragged) {
+                // Check if current position is valid
+                const isValidPosition = canPlaceDraggedZone(centerX, centerY, zone, 'levelUp');
+                if (isValidPosition) {
+                    fillColor = 'rgba(255, 107, 53, 0.6)'; // Brighter when valid
+                    borderColor = ZONE_CONFIG.levelUp.borderColor;
+                } else {
+                    fillColor = 'rgba(255, 0, 0, 0.4)'; // Red tint when invalid
+                    borderColor = '#ff0000'; // Red border when invalid
+                }
+                lineWidth = 3;
+            } else {
+                fillColor = ZONE_CONFIG.levelUp.color;
+                borderColor = ZONE_CONFIG.levelUp.borderColor;
+                lineWidth = ZONE_CONFIG.levelUp.lineWidth;
+            }
+            
             drawRotatedRect(
                 ctx, 
                 centerX, 
@@ -4029,10 +5668,10 @@ function render() {
                 width, 
                 height, 
                 rotation,
-                isHovered ? `rgba(255, 71, 87, 0.5)` : REGION_CONFIG.levelUp.color,
-                isHovered ? COLORS.hover : REGION_CONFIG.levelUp.borderColor,
-                isHovered ? 3 : REGION_CONFIG.levelUp.lineWidth,
-                REGION_CONFIG.levelUp.dash
+                fillColor,
+                borderColor,
+                lineWidth,
+                ZONE_CONFIG.levelUp.dash
             );
             
             // Draw level up text with level (unrotated)
@@ -4040,7 +5679,7 @@ function render() {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            const displayText = `+${region.level}`;
+            const displayText = `+${zone.level}`;
             
             // Draw black outline
             ctx.strokeStyle = '#000000';
@@ -4053,18 +5692,85 @@ function render() {
         }
     });
     
-    // Draw permanent bottom cash region
-    if (permanentBottomCashRegion) {
-        // Calculate center of region
-        const centerX = (permanentBottomCashRegion.x1 + permanentBottomCashRegion.x2) / 2;
-        const centerY = (permanentBottomCashRegion.y1 + permanentBottomCashRegion.y2) / 2;
+    // Draw anti-gravity zones
+    antiGravityZones.forEach(zone => {
+        // Calculate center of zone
+        const centerX = zone.centerX || (zone.x1 + zone.x2) / 2;
+        const centerY = zone.centerY || (zone.y1 + zone.y2) / 2;
+        const width = zone.width || (zone.x2 - zone.x1);
+        const height = zone.height || (zone.y2 - zone.y1);
+        const rotation = zone.rotation || 0;
         
-        // Draw the region rectangle
+        // Check if this zone is being hovered over in remover mode or being dragged
+        const isHovered = removerMode && hoveredAntiGravityZone === zone;
+        const isDragged = isDraggingAntiGravityZone && draggedAntiGravityZone === zone;
+        
+        // Draw the rotated zone rectangle
+        let fillColor, borderColor, lineWidth;
+        
+        if (isHovered) {
+            fillColor = `rgba(255, 71, 87, 0.5)`;
+            borderColor = COLORS.hover;
+            lineWidth = 3;
+        } else if (isDragged) {
+            // Check if current position is valid
+            const isValidPosition = canPlaceDraggedZone(centerX, centerY, zone, 'antiGravity');
+            if (isValidPosition) {
+                fillColor = 'rgba(255, 0, 255, 0.6)'; // Brighter when valid
+                borderColor = ZONE_CONFIG.antiGravity.borderColor;
+            } else {
+                fillColor = 'rgba(255, 0, 0, 0.4)'; // Red tint when invalid
+                borderColor = '#ff0000'; // Red border when invalid
+            }
+            lineWidth = 3;
+        } else {
+            fillColor = ZONE_CONFIG.antiGravity.color;
+            borderColor = ZONE_CONFIG.antiGravity.borderColor;
+            lineWidth = ZONE_CONFIG.antiGravity.lineWidth;
+        }
+        
+        drawRotatedRect(
+            ctx, 
+            centerX, 
+            centerY, 
+            width, 
+            height, 
+            rotation,
+            fillColor,
+            borderColor,
+            lineWidth,
+            ZONE_CONFIG.antiGravity.dash
+        );
+        
+        // Draw anti-gravity text (unrotated)
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const displayText = '↑↓'; // Up-down arrow symbol
+        
+        // Draw black outline
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(displayText, centerX, centerY);
+        
+        // Draw text
+        ctx.fillStyle = '#e0e0e0';
+        ctx.fillText(displayText, centerX, centerY);
+    });
+    
+    // Draw permanent bottom cash zone
+    if (permanentBottomCashZone) {
+        // Calculate center of zone
+        const centerX = (permanentBottomCashZone.x1 + permanentBottomCashZone.x2) / 2;
+        const centerY = (permanentBottomCashZone.y1 + permanentBottomCashZone.y2) / 2;
+        
+        // Draw the zone rectangle
         ctx.beginPath();
-        ctx.rect(permanentBottomCashRegion.x1, permanentBottomCashRegion.y1, 
-                permanentBottomCashRegion.x2 - permanentBottomCashRegion.x1, 
-                permanentBottomCashRegion.y2 - permanentBottomCashRegion.y1);
-        ctx.fillStyle = 'rgba(46, 213, 115, 0.4)'; // Slightly more transparent than regular cash regions
+        ctx.rect(permanentBottomCashZone.x1, permanentBottomCashZone.y1, 
+                permanentBottomCashZone.x2 - permanentBottomCashZone.x1, 
+                permanentBottomCashZone.y2 - permanentBottomCashZone.y1);
+        ctx.fillStyle = 'rgba(46, 213, 115, 0.4)'; // Slightly more transparent than regular cash zones
         ctx.fill();
         ctx.strokeStyle = '#2ed573';
         ctx.lineWidth = 3;
@@ -4082,9 +5788,9 @@ function render() {
         ctx.lineWidth = 3;
         
         // Calculate positions for exactly 3 emojis
-        const regionWidth = permanentBottomCashRegion.x2 - permanentBottomCashRegion.x1;
-        const emojiSpacing = regionWidth / 4; // Divide by 4 to get 3 evenly spaced positions
-        const startX = permanentBottomCashRegion.x1 + emojiSpacing;
+        const zoneWidth = permanentBottomCashZone.x2 - permanentBottomCashZone.x1;
+        const emojiSpacing = zoneWidth / 4; // Divide by 4 to get 3 evenly spaced positions
+        const startX = permanentBottomCashZone.x1 + emojiSpacing;
         
         // Draw 3 emojis
         for (let i = 0; i < 3; i++) {
@@ -4249,35 +5955,35 @@ function render() {
         ctx.setLineDash([]); // Reset line dash
     }
     
-    // Region placement restriction circles removed - regions now upgrade existing ones
+    // Zone placement restriction circles removed - zones now upgrade existing ones
     
-    // Draw multiplier region cursor preview if in placement mode and mouse is on canvas
+    // Draw multiplier zone cursor preview if in placement mode and mouse is on canvas
     if (multiplierPlacementMode && isMouseOnCanvas) {
-        const width = REGION_CONFIG.multiplier.width;
-        const height = REGION_CONFIG.multiplier.height;
+        const width = ZONE_CONFIG.multiplier.width;
+        const height = ZONE_CONFIG.multiplier.height;
         
         // Calculate preview rectangle centered on cursor
         const previewX = mouseX - width / 2;
         const previewY = mouseY - height / 2;
         
         // Check if placement is valid
-        const canPlace = !checkMultiplierRegionCollision(mouseX, mouseY);
+        const canPlace = !checkMultiplierZoneCollision(mouseX, mouseY);
         
         ctx.beginPath();
         ctx.rect(previewX, previewY, width, height);
         
         // Use different colors based on placement validity
         if (canPlace) {
-            ctx.fillStyle = REGION_CONFIG.multiplier.color;
-            ctx.strokeStyle = REGION_CONFIG.multiplier.borderColor;
+            ctx.fillStyle = ZONE_CONFIG.multiplier.color;
+            ctx.strokeStyle = ZONE_CONFIG.multiplier.borderColor;
         } else {
             ctx.fillStyle = 'rgba(255, 0, 0, 0.5)'; // Red if cannot place
             ctx.strokeStyle = '#ff0000';
         }
         
         ctx.fill();
-        ctx.lineWidth = REGION_CONFIG.multiplier.lineWidth;
-        ctx.setLineDash(REGION_CONFIG.multiplier.dash);
+        ctx.lineWidth = ZONE_CONFIG.multiplier.lineWidth;
+        ctx.setLineDash(ZONE_CONFIG.multiplier.dash);
         ctx.stroke();
         ctx.setLineDash([]); // Reset line dash
         
@@ -4296,16 +6002,16 @@ function render() {
         ctx.fillText(`×${multiplierFactor}`, mouseX, mouseY);
     }
     
-    // Cash item preview removed - regions now upgrade existing ones automatically
+    // Cash item preview removed - zones now upgrade existing ones automatically
     
-    // Multiplier item preview removed - regions now upgrade existing ones automatically
+    // Multiplier item preview removed - zones now upgrade existing ones automatically
     
-    // Level up item preview removed - regions now upgrade existing ones automatically
+    // Level up item preview removed - zones now upgrade existing ones automatically
     
-    // Draw portal region cursor preview if in portal mode and mouse is on canvas
+    // Draw portal zone cursor preview if in portal mode and mouse is on canvas
     if (portalMode && isMouseOnCanvas) {
-        const width = REGION_CONFIG.portal.width;
-        const height = REGION_CONFIG.portal.height;
+        const width = ZONE_CONFIG.portal.width;
+        const height = ZONE_CONFIG.portal.height;
         
         // Calculate preview rectangle centered on cursor
         const previewX = mouseX - width / 2;
@@ -4322,10 +6028,10 @@ function render() {
         ctx.setLineDash([]); // Reset line dash
     }
     
-    // Draw cash region cursor preview if in cash mode and mouse is on canvas
+    // Draw cash zone cursor preview if in cash mode and mouse is on canvas
     if (cashMode && isMouseOnCanvas) {
-        const width = REGION_CONFIG.cash.width;
-        const height = REGION_CONFIG.cash.height;
+        const width = ZONE_CONFIG.cash.width;
+        const height = ZONE_CONFIG.cash.height;
         
         // Calculate preview rectangle centered on cursor
         const previewX = mouseX - width / 2;
@@ -4333,11 +6039,11 @@ function render() {
         
         ctx.beginPath();
         ctx.rect(previewX, previewY, width, height);
-        ctx.fillStyle = REGION_CONFIG.cash.color;
+        ctx.fillStyle = ZONE_CONFIG.cash.color;
         ctx.fill();
-        ctx.strokeStyle = REGION_CONFIG.cash.borderColor;
-        ctx.lineWidth = REGION_CONFIG.cash.lineWidth;
-        ctx.setLineDash(REGION_CONFIG.cash.dash);
+        ctx.strokeStyle = ZONE_CONFIG.cash.borderColor;
+        ctx.lineWidth = ZONE_CONFIG.cash.lineWidth;
+        ctx.setLineDash(ZONE_CONFIG.cash.dash);
         ctx.stroke();
         ctx.setLineDash([]); // Reset line dash
         
@@ -4356,15 +6062,15 @@ function render() {
         ctx.fillText('💵', mouseX, mouseY);
     }
     
-    // Draw level up region cursor preview if in level up mode and mouse is on canvas
+    // Draw level up zone cursor preview if in level up mode and mouse is on canvas
     if (levelUpMode && isMouseOnCanvas) {
-        // Check if hovering over an existing level up region
-        const placementInfo = checkRegionPlacement(mouseX, mouseY, 'levelUp');
+        // Check if hovering over an existing level up zone
+        const placementInfo = checkZonePlacement(mouseX, mouseY, 'levelUp');
         
-        // Only show preview if NOT hovering over an existing region
+        // Only show preview if NOT hovering over an existing zone
         if (!placementInfo.levelUpTarget) {
-            const width = REGION_CONFIG.levelUp.width;
-            const height = REGION_CONFIG.levelUp.height;
+            const width = ZONE_CONFIG.levelUp.width;
+            const height = ZONE_CONFIG.levelUp.height;
             
             // Calculate preview rectangle centered on cursor
             const previewX = mouseX - width / 2;
@@ -4372,11 +6078,11 @@ function render() {
             
             ctx.beginPath();
             ctx.rect(previewX, previewY, width, height);
-            ctx.fillStyle = REGION_CONFIG.levelUp.color;
+            ctx.fillStyle = ZONE_CONFIG.levelUp.color;
             ctx.fill();
-            ctx.strokeStyle = REGION_CONFIG.levelUp.borderColor;
-            ctx.lineWidth = REGION_CONFIG.levelUp.lineWidth;
-            ctx.setLineDash(REGION_CONFIG.levelUp.dash);
+            ctx.strokeStyle = ZONE_CONFIG.levelUp.borderColor;
+            ctx.lineWidth = ZONE_CONFIG.levelUp.lineWidth;
+            ctx.setLineDash(ZONE_CONFIG.levelUp.dash);
             ctx.stroke();
             ctx.setLineDash([]); // Reset line dash
             
@@ -4394,7 +6100,7 @@ function render() {
             ctx.fillStyle = '#e0e0e0';
             ctx.fillText('+1', mouseX, mouseY);
         }
-        // When hovering over existing region, do NOTHING - no preview, no crosshair, nothing
+        // When hovering over existing zone, do NOTHING - no preview, no crosshair, nothing
     }
     
     // Draw spawn indicator
@@ -4408,6 +6114,28 @@ function render() {
     
 }
 
+// Function to apply anti-gravity forces to balls in anti-gravity zones
+function applyAntiGravityForces() {
+    const bodies = Matter.Composite.allBodies(world);
+    
+    bodies.forEach(body => {
+        // Check if it's a ball (has circleRadius) and is in an anti-gravity zone
+        if (body.circleRadius && body.inAntiGravityZone) {
+            // Apply anti-gravity by modifying the ball's velocity directly
+            const currentVelocity = body.velocity;
+            
+            // Apply upward force to counteract gravity
+            const antiGravityStrength = physicsSettings.gravity * 0.8; // Stronger force
+            
+            // Reduce downward velocity and add upward velocity
+            Body.setVelocity(body, {
+                x: currentVelocity.x,
+                y: currentVelocity.y - antiGravityStrength // Subtract to go upward
+            });
+        }
+    });
+}
+
 // Game loop
 function gameLoop(currentTime) {
     // Calculate FPS
@@ -4417,6 +6145,8 @@ function gameLoop(currentTime) {
     if (!isPaused) {
         Engine.update(engine);
         
+        // Apply anti-gravity forces to balls in anti-gravity zones
+        applyAntiGravityForces();
         
         // Check for balls that have fallen off the bottom of the screen
         checkForFallenBalls();
@@ -4478,10 +6208,10 @@ function generateRandomWalls() {
     const canvasHeight = CANVAS_CONFIG.height;
     const margin = 50; // Margin from edges
     const topSpawnArea = 150; // Reserve top 150px for ball spawning
-    const minDistance = 80; // Minimum distance between walls and from money region
+    const minDistance = 80; // Minimum distance between walls and from money zone
     
-    // Get money region bounds (permanent bottom cash region)
-    const moneyRegionBounds = {
+    // Get money zone bounds (permanent bottom cash zone)
+    const moneyZoneBounds = {
         x1: canvasWidth * 0.25, // 25% from left edge
         x2: canvasWidth * 0.75, // 75% from left edge  
         y1: canvasHeight - 30, // Bottom of canvas
@@ -4507,14 +6237,14 @@ function generateRandomWalls() {
             // Use same sizes as item modal system
             const rotation = Math.random() * Math.PI * 2; // Random rotation
             
-            // Check if position conflicts with money region
-            const conflictsWithMoneyRegion = 
-                x >= moneyRegionBounds.x1 - minDistance &&
-                x <= moneyRegionBounds.x2 + minDistance &&
-                y >= moneyRegionBounds.y1 - minDistance &&
-                y <= moneyRegionBounds.y2 + minDistance;
+            // Check if position conflicts with money zone
+            const conflictsWithMoneyZone = 
+                x >= moneyZoneBounds.x1 - minDistance &&
+                x <= moneyZoneBounds.x2 + minDistance &&
+                y >= moneyZoneBounds.y1 - minDistance &&
+                y <= moneyZoneBounds.y2 + minDistance;
             
-            if (conflictsWithMoneyRegion) {
+            if (conflictsWithMoneyZone) {
                 continue; // Try again
             }
             
@@ -4531,9 +6261,9 @@ function generateRandomWalls() {
             }
             
             // Check if position conflicts with portals
-            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            const conflictsWithPortalZones = conflictsWithPortals(x, y, minDistance);
             
-            if (conflictsWithWalls || conflictsWithPortalRegions) {
+            if (conflictsWithWalls || conflictsWithPortalZones) {
                 continue; // Try again
             }
             
@@ -4598,33 +6328,33 @@ function generateRandomMultipliers() {
     const canvasHeight = CANVAS_CONFIG.height;
     const margin = 50; // Margin from edges
     const topSpawnArea = 150; // Reserve top 150px for ball spawning
-    const minDistance = 100; // Minimum distance between multipliers and walls/regions
+    const minDistance = 100; // Minimum distance between multipliers and walls/zones
     
     // Calculate the spawnable area (excluding top spawn area and bottom margin)
     const spawnableHeight = canvasHeight - topSpawnArea - margin;
-    const regionHeight = spawnableHeight / 3; // Divide into 3 equal vertical regions
+    const zoneHeight = spawnableHeight / 3; // Divide into 3 equal vertical zones
     
-    // Define the three vertical regions
-    const regions = [
-        { // Top region
+    // Define the three vertical zones
+    const zones = [
+        { // Top zone
             name: 'top',
             y1: topSpawnArea,
-            y2: topSpawnArea + regionHeight
+            y2: topSpawnArea + zoneHeight
         },
-        { // Middle region
+        { // Middle zone
             name: 'middle', 
-            y1: topSpawnArea + regionHeight,
-            y2: topSpawnArea + 2 * regionHeight
+            y1: topSpawnArea + zoneHeight,
+            y2: topSpawnArea + 2 * zoneHeight
         },
-        { // Bottom region
+        { // Bottom zone
             name: 'bottom',
-            y1: topSpawnArea + 2 * regionHeight,
+            y1: topSpawnArea + 2 * zoneHeight,
             y2: canvasHeight - margin
         }
     ];
     
-    // Get money region bounds (permanent bottom cash region)
-    const moneyRegionBounds = {
+    // Get money zone bounds (permanent bottom cash zone)
+    const moneyZoneBounds = {
         x1: canvasWidth * 0.25, // 25% from left edge
         x2: canvasWidth * 0.75, // 75% from left edge  
         y1: canvasHeight - 30, // Bottom of canvas
@@ -4635,7 +6365,7 @@ function generateRandomMultipliers() {
     const existingWalls = [];
     const bodies = Matter.Composite.allBodies(world);
     for (const body of bodies) {
-        if (body.isStatic && body !== permanentBottomCashRegion?.body) {
+        if (body.isStatic && body !== permanentBottomCashZone?.body) {
             existingWalls.push({
                 x: body.position.x,
                 y: body.position.y,
@@ -4645,27 +6375,27 @@ function generateRandomMultipliers() {
         }
     }
     
-    // Place exactly one multiplier in each region
-    for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
-        const region = regions[regionIndex];
+    // Place exactly one multiplier in each zone
+    for (let zoneIndex = 0; zoneIndex < zones.length; zoneIndex++) {
+        const zone = zones[zoneIndex];
         let attempts = 0;
         let placed = false;
         
         while (!placed && attempts < 50) { // Max 50 attempts per multiplier
             attempts++;
             
-            // Random position within the specific region bounds
+            // Random position within the specific zone bounds
             const x = margin + Math.random() * (canvasWidth - 2 * margin);
-            const y = region.y1 + Math.random() * (region.y2 - region.y1);
+            const y = zone.y1 + Math.random() * (zone.y2 - zone.y1);
             
-            // Check if position conflicts with money region
-            const conflictsWithMoneyRegion = 
-                x >= moneyRegionBounds.x1 - minDistance &&
-                x <= moneyRegionBounds.x2 + minDistance &&
-                y >= moneyRegionBounds.y1 - minDistance &&
-                y <= moneyRegionBounds.y2 + minDistance;
+            // Check if position conflicts with money zone
+            const conflictsWithMoneyZone = 
+                x >= moneyZoneBounds.x1 - minDistance &&
+                x <= moneyZoneBounds.x2 + minDistance &&
+                y >= moneyZoneBounds.y1 - minDistance &&
+                y <= moneyZoneBounds.y2 + minDistance;
             
-            if (conflictsWithMoneyRegion) {
+            if (conflictsWithMoneyZone) {
                 continue; // Try again
             }
             
@@ -4681,11 +6411,11 @@ function generateRandomMultipliers() {
                 }
             }
             
-            // Check if position conflicts with existing multiplier regions
+            // Check if position conflicts with existing multiplier zones
             let conflictsWithMultipliers = false;
-            for (const existingMultiplier of multiplierRegions) {
+            for (const existingMultiplier of multiplierZones) {
                 const distance = Math.sqrt(
-                    Math.pow(x - existingMultiplier.x, 2) + Math.pow(y - existingMultiplier.y, 2)
+                    Math.pow(x - existingMultiplier.centerX, 2) + Math.pow(y - existingMultiplier.centerY, 2)
                 );
                 if (distance < minDistance) {
                     conflictsWithMultipliers = true;
@@ -4694,21 +6424,21 @@ function generateRandomMultipliers() {
             }
             
             // Check if position conflicts with portals
-            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            const conflictsWithPortalZones = conflictsWithPortals(x, y, minDistance);
             
-            // Check if position conflicts with cash regions
-            const conflictsWithCashRegionsCheck = conflictsWithCashRegions(x, y, minDistance);
+            // Check if position conflicts with cash zones
+            const conflictsWithCashZonesCheck = conflictsWithCashZones(x, y, minDistance);
             
-            // Check if position conflicts with level up regions
-            const conflictsWithLevelUpRegionsCheck = conflictsWithLevelUpRegions(x, y, minDistance);
+            // Check if position conflicts with level up zones
+            const conflictsWithLevelUpZonesCheck = conflictsWithLevelUpZones(x, y, minDistance);
             
-            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithPortalRegions || conflictsWithCashRegionsCheck || conflictsWithLevelUpRegionsCheck) {
+            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithPortalZones || conflictsWithCashZonesCheck || conflictsWithLevelUpZonesCheck) {
                 continue; // Try again
             }
             
-            // Create the 2x multiplier region with horizontal orientation (no rotation)
+            // Create the 2x multiplier zone with horizontal orientation (no rotation)
             const rotation = 0; // Horizontal orientation
-            const multiplier = createMultiplierRegion(x, y, 2, rotation);
+            const multiplier = createMultiplierZone(x, y, 2, rotation);
             
             // Add to existing walls list for future collision checking
             existingWalls.push({
@@ -4721,47 +6451,47 @@ function generateRandomMultipliers() {
         }
         
         if (!placed) {
-            console.log(`Failed to place multiplier in ${region.name} region after 50 attempts`);
+            console.log(`Failed to place multiplier in ${zone.name} zone after 50 attempts`);
         }
     }
     
-    console.log(`Generated ${multiplierRegions.length} random multipliers (1 in each of the 3 vertical regions)`);
+    console.log(`Generated ${multiplierZones.length} random multipliers (1 in each of the 3 vertical zones)`);
 }
 
-// Function to generate 3 random cash regions at game start
-function generateRandomCashRegions() {
-    const numCashRegions = 3;
+// Function to generate 3 random cash zones at game start
+function generateRandomCashZones() {
+    const numCashZones = 3;
     const canvasWidth = CANVAS_CONFIG.width;
     const canvasHeight = CANVAS_CONFIG.height;
     const margin = 50; // Margin from edges
     const topSpawnArea = 150; // Reserve top 150px for ball spawning
-    const minDistance = 100; // Minimum distance between cash regions and walls/regions
+    const minDistance = 100; // Minimum distance between cash zones and walls/zones
     
     // Calculate the spawnable area (excluding top spawn area and bottom margin)
     const spawnableHeight = canvasHeight - topSpawnArea - margin;
-    const regionHeight = spawnableHeight / 3; // Divide into 3 equal vertical regions
+    const zoneHeight = spawnableHeight / 3; // Divide into 3 equal vertical zones
     
-    // Define the three vertical regions
-    const regions = [
-        { // Top region
+    // Define the three vertical zones
+    const zones = [
+        { // Top zone
             name: 'top',
             y1: topSpawnArea,
-            y2: topSpawnArea + regionHeight
+            y2: topSpawnArea + zoneHeight
         },
-        { // Middle region
+        { // Middle zone
             name: 'middle', 
-            y1: topSpawnArea + regionHeight,
-            y2: topSpawnArea + 2 * regionHeight
+            y1: topSpawnArea + zoneHeight,
+            y2: topSpawnArea + 2 * zoneHeight
         },
-        { // Bottom region
+        { // Bottom zone
             name: 'bottom',
-            y1: topSpawnArea + 2 * regionHeight,
+            y1: topSpawnArea + 2 * zoneHeight,
             y2: canvasHeight - margin
         }
     ];
     
-    // Get money region bounds (permanent bottom cash region)
-    const moneyRegionBounds = {
+    // Get money zone bounds (permanent bottom cash zone)
+    const moneyZoneBounds = {
         x1: canvasWidth * 0.25, // 25% from left edge
         x2: canvasWidth * 0.75, // 75% from left edge  
         y1: canvasHeight - 30, // Bottom of canvas
@@ -4772,7 +6502,7 @@ function generateRandomCashRegions() {
     const existingWalls = [];
     const bodies = Matter.Composite.allBodies(world);
     for (const body of bodies) {
-        if (body.isStatic && body !== permanentBottomCashRegion?.body) {
+        if (body.isStatic && body !== permanentBottomCashZone?.body) {
             existingWalls.push({
                 x: body.position.x,
                 y: body.position.y,
@@ -4782,27 +6512,27 @@ function generateRandomCashRegions() {
         }
     }
     
-    // Place exactly one cash region in each region
-    for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
-        const region = regions[regionIndex];
+    // Place exactly one cash zone in each zone
+    for (let zoneIndex = 0; zoneIndex < zones.length; zoneIndex++) {
+        const zone = zones[zoneIndex];
         let attempts = 0;
         let placed = false;
         
-        while (!placed && attempts < 50) { // Max 50 attempts per cash region
+        while (!placed && attempts < 50) { // Max 50 attempts per cash zone
             attempts++;
             
-            // Random position within the specific region bounds
+            // Random position within the specific zone bounds
             const x = margin + Math.random() * (canvasWidth - 2 * margin);
-            const y = region.y1 + Math.random() * (region.y2 - region.y1);
+            const y = zone.y1 + Math.random() * (zone.y2 - zone.y1);
             
-            // Check if position conflicts with money region
-            const conflictsWithMoneyRegion = 
-                x >= moneyRegionBounds.x1 - minDistance &&
-                x <= moneyRegionBounds.x2 + minDistance &&
-                y >= moneyRegionBounds.y1 - minDistance &&
-                y <= moneyRegionBounds.y2 + minDistance;
+            // Check if position conflicts with money zone
+            const conflictsWithMoneyZone = 
+                x >= moneyZoneBounds.x1 - minDistance &&
+                x <= moneyZoneBounds.x2 + minDistance &&
+                y >= moneyZoneBounds.y1 - minDistance &&
+                y <= moneyZoneBounds.y2 + minDistance;
             
-            if (conflictsWithMoneyRegion) {
+            if (conflictsWithMoneyZone) {
                 continue; // Try again
             }
             
@@ -4818,11 +6548,11 @@ function generateRandomCashRegions() {
                 }
             }
             
-            // Check if position conflicts with existing multiplier regions
+            // Check if position conflicts with existing multiplier zones
             let conflictsWithMultipliers = false;
-            for (const existingMultiplier of multiplierRegions) {
+            for (const existingMultiplier of multiplierZones) {
                 const distance = Math.sqrt(
-                    Math.pow(x - existingMultiplier.x, 2) + Math.pow(y - existingMultiplier.y, 2)
+                    Math.pow(x - existingMultiplier.centerX, 2) + Math.pow(y - existingMultiplier.centerY, 2)
                 );
                 if (distance < minDistance) {
                     conflictsWithMultipliers = true;
@@ -4830,22 +6560,22 @@ function generateRandomCashRegions() {
                 }
             }
             
-            // Check if position conflicts with existing cash regions
-            const conflictsWithCashRegionsCheck = conflictsWithCashRegions(x, y, minDistance);
+            // Check if position conflicts with existing cash zones
+            const conflictsWithCashZonesCheck = conflictsWithCashZones(x, y, minDistance);
             
-            // Check if position conflicts with level up regions
-            const conflictsWithLevelUpRegionsCheck = conflictsWithLevelUpRegions(x, y, minDistance);
+            // Check if position conflicts with level up zones
+            const conflictsWithLevelUpZonesCheck = conflictsWithLevelUpZones(x, y, minDistance);
             
             // Check if position conflicts with portals
-            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            const conflictsWithPortalZones = conflictsWithPortals(x, y, minDistance);
             
-            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithCashRegionsCheck || conflictsWithLevelUpRegionsCheck || conflictsWithPortalRegions) {
+            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithCashZonesCheck || conflictsWithLevelUpZonesCheck || conflictsWithPortalZones) {
                 continue; // Try again
             }
             
-            // Create the cash region with horizontal orientation (no rotation)
+            // Create the cash zone with horizontal orientation (no rotation)
             const rotation = 0; // Horizontal orientation
-            const cashRegion = createCashRegion(x, y, rotation);
+            const cashZone = createCashZone(x, y, rotation);
             
             // Add to existing walls list for future collision checking
             existingWalls.push({
@@ -4858,47 +6588,47 @@ function generateRandomCashRegions() {
         }
         
         if (!placed) {
-            console.log(`Failed to place cash region in ${region.name} region after 50 attempts`);
+            console.log(`Failed to place cash zone in ${zone.name} zone after 50 attempts`);
         }
     }
     
-    console.log(`Generated ${cashRegions.length} random cash regions (1 in each of the 3 vertical regions)`);
+    console.log(`Generated ${cashZones.length} random cash zones (1 in each of the 3 vertical zones)`);
 }
 
-// Function to generate 3 random level up regions at game start
-function generateRandomLevelUpRegions() {
-    const numLevelUpRegions = 3;
+// Function to generate 3 random level up zones at game start
+function generateRandomLevelUpZones() {
+    const numLevelUpZones = 3;
     const canvasWidth = CANVAS_CONFIG.width;
     const canvasHeight = CANVAS_CONFIG.height;
     const margin = 50; // Margin from edges
     const topSpawnArea = 150; // Reserve top 150px for ball spawning
-    const minDistance = 100; // Minimum distance between level up regions and walls/regions
+    const minDistance = 100; // Minimum distance between level up zones and walls/zones
     
     // Calculate the spawnable area (excluding top spawn area and bottom margin)
     const spawnableHeight = canvasHeight - topSpawnArea - margin;
-    const regionHeight = spawnableHeight / 3; // Divide into 3 equal vertical regions
+    const zoneHeight = spawnableHeight / 3; // Divide into 3 equal vertical zones
     
-    // Define the three vertical regions
-    const regions = [
-        { // Top region
+    // Define the three vertical zones
+    const zones = [
+        { // Top zone
             name: 'top',
             y1: topSpawnArea,
-            y2: topSpawnArea + regionHeight
+            y2: topSpawnArea + zoneHeight
         },
-        { // Middle region
+        { // Middle zone
             name: 'middle', 
-            y1: topSpawnArea + regionHeight,
-            y2: topSpawnArea + 2 * regionHeight
+            y1: topSpawnArea + zoneHeight,
+            y2: topSpawnArea + 2 * zoneHeight
         },
-        { // Bottom region
+        { // Bottom zone
             name: 'bottom',
-            y1: topSpawnArea + 2 * regionHeight,
+            y1: topSpawnArea + 2 * zoneHeight,
             y2: canvasHeight - margin
         }
     ];
     
-    // Get money region bounds (permanent bottom cash region)
-    const moneyRegionBounds = {
+    // Get money zone bounds (permanent bottom cash zone)
+    const moneyZoneBounds = {
         x1: canvasWidth * 0.25, // 25% from left edge
         x2: canvasWidth * 0.75, // 75% from left edge  
         y1: canvasHeight - 30, // Bottom of canvas
@@ -4909,7 +6639,7 @@ function generateRandomLevelUpRegions() {
     const existingWalls = [];
     const bodies = Matter.Composite.allBodies(world);
     for (const body of bodies) {
-        if (body.isStatic && body !== permanentBottomCashRegion?.body) {
+        if (body.isStatic && body !== permanentBottomCashZone?.body) {
             existingWalls.push({
                 x: body.position.x,
                 y: body.position.y,
@@ -4919,27 +6649,27 @@ function generateRandomLevelUpRegions() {
         }
     }
     
-    // Place exactly one level up region in each region
-    for (let regionIndex = 0; regionIndex < regions.length; regionIndex++) {
-        const region = regions[regionIndex];
+    // Place exactly one level up zone in each zone
+    for (let zoneIndex = 0; zoneIndex < zones.length; zoneIndex++) {
+        const zone = zones[zoneIndex];
         let attempts = 0;
         let placed = false;
         
-        while (!placed && attempts < 50) { // Max 50 attempts per level up region
+        while (!placed && attempts < 50) { // Max 50 attempts per level up zone
             attempts++;
             
-            // Random position within the specific region bounds
+            // Random position within the specific zone bounds
             const x = margin + Math.random() * (canvasWidth - 2 * margin);
-            const y = region.y1 + Math.random() * (region.y2 - region.y1);
+            const y = zone.y1 + Math.random() * (zone.y2 - zone.y1);
             
-            // Check if position conflicts with money region
-            const conflictsWithMoneyRegion = 
-                x >= moneyRegionBounds.x1 - minDistance &&
-                x <= moneyRegionBounds.x2 + minDistance &&
-                y >= moneyRegionBounds.y1 - minDistance &&
-                y <= moneyRegionBounds.y2 + minDistance;
+            // Check if position conflicts with money zone
+            const conflictsWithMoneyZone = 
+                x >= moneyZoneBounds.x1 - minDistance &&
+                x <= moneyZoneBounds.x2 + minDistance &&
+                y >= moneyZoneBounds.y1 - minDistance &&
+                y <= moneyZoneBounds.y2 + minDistance;
             
-            if (conflictsWithMoneyRegion) {
+            if (conflictsWithMoneyZone) {
                 continue; // Try again
             }
             
@@ -4955,11 +6685,11 @@ function generateRandomLevelUpRegions() {
                 }
             }
             
-            // Check if position conflicts with existing multiplier regions
+            // Check if position conflicts with existing multiplier zones
             let conflictsWithMultipliers = false;
-            for (const existingMultiplier of multiplierRegions) {
+            for (const existingMultiplier of multiplierZones) {
                 const distance = Math.sqrt(
-                    Math.pow(x - existingMultiplier.x, 2) + Math.pow(y - existingMultiplier.y, 2)
+                    Math.pow(x - existingMultiplier.centerX, 2) + Math.pow(y - existingMultiplier.centerY, 2)
                 );
                 if (distance < minDistance) {
                     conflictsWithMultipliers = true;
@@ -4967,22 +6697,22 @@ function generateRandomLevelUpRegions() {
                 }
             }
             
-            // Check if position conflicts with existing cash regions
-            const conflictsWithCashRegionsCheck = conflictsWithCashRegions(x, y, minDistance);
+            // Check if position conflicts with existing cash zones
+            const conflictsWithCashZonesCheck = conflictsWithCashZones(x, y, minDistance);
             
-            // Check if position conflicts with existing level up regions
-            const conflictsWithLevelUpRegionsCheck = conflictsWithLevelUpRegions(x, y, minDistance);
+            // Check if position conflicts with existing level up zones
+            const conflictsWithLevelUpZonesCheck = conflictsWithLevelUpZones(x, y, minDistance);
             
             // Check if position conflicts with portals
-            const conflictsWithPortalRegions = conflictsWithPortals(x, y, minDistance);
+            const conflictsWithPortalZones = conflictsWithPortals(x, y, minDistance);
             
-            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithCashRegionsCheck || conflictsWithLevelUpRegionsCheck || conflictsWithPortalRegions) {
+            if (conflictsWithWalls || conflictsWithMultipliers || conflictsWithCashZonesCheck || conflictsWithLevelUpZonesCheck || conflictsWithPortalZones) {
                 continue; // Try again
             }
             
-            // Create the level up region with horizontal orientation (no rotation)
+            // Create the level up zone with horizontal orientation (no rotation)
             const rotation = 0; // Horizontal orientation
-            const levelUpRegion = createLevelUpRegion(x, y, rotation);
+            const levelUpZone = createLevelUpZone(x, y, rotation);
             
             // Add to existing walls list for future collision checking
             existingWalls.push({
@@ -4995,24 +6725,22 @@ function generateRandomLevelUpRegions() {
         }
         
         if (!placed) {
-            console.log(`Failed to place level up region in ${region.name} region after 50 attempts`);
+            console.log(`Failed to place level up zone in ${zone.name} zone after 50 attempts`);
         }
     }
     
-    console.log(`Generated ${levelUpRegions.length} random level up regions (1 in each of the 3 vertical regions)`);
+    console.log(`Generated ${levelUpZones.length} random level up zones (1 in each of the 3 vertical zones)`);
 }
 
 // Initialize drop 10 button state
 updateDropButtonState();
 updateDropTestButtonState();
 
-// Helper function to check if a position conflicts with any portal regions
+// Helper function to check if a position conflicts with any portal zones
 function conflictsWithPortals(x, y, minDistance = 100) {
-    for (const portal of portalRegions) {
-        const portalCenterX = (portal.x1 + portal.x2) / 2;
-        const portalCenterY = (portal.y1 + portal.y2) / 2;
+    for (const portal of portalZones) {
         const distance = Math.sqrt(
-            Math.pow(x - portalCenterX, 2) + Math.pow(y - portalCenterY, 2)
+            Math.pow(x - portal.centerX, 2) + Math.pow(y - portal.centerY, 2)
         );
         if (distance < minDistance) {
             return true;
@@ -5021,11 +6749,11 @@ function conflictsWithPortals(x, y, minDistance = 100) {
     return false;
 }
 
-// Helper function to check if a position conflicts with any cash regions
-function conflictsWithCashRegions(x, y, minDistance = 100) {
-    for (const cashRegion of cashRegions) {
+// Helper function to check if a position conflicts with any cash zones
+function conflictsWithCashZones(x, y, minDistance = 100) {
+    for (const cashZone of cashZones) {
         const distance = Math.sqrt(
-            Math.pow(x - cashRegion.x, 2) + Math.pow(y - cashRegion.y, 2)
+            Math.pow(x - cashZone.centerX, 2) + Math.pow(y - cashZone.centerY, 2)
         );
         if (distance < minDistance) {
             return true;
@@ -5034,11 +6762,11 @@ function conflictsWithCashRegions(x, y, minDistance = 100) {
     return false;
 }
 
-// Helper function to check if a position conflicts with any level up regions
-function conflictsWithLevelUpRegions(x, y, minDistance = 100) {
-    for (const levelUpRegion of levelUpRegions) {
+// Helper function to check if a position conflicts with any level up zones
+function conflictsWithLevelUpZones(x, y, minDistance = 100) {
+    for (const levelUpZone of levelUpZones) {
         const distance = Math.sqrt(
-            Math.pow(x - levelUpRegion.x, 2) + Math.pow(y - levelUpRegion.y, 2)
+            Math.pow(x - levelUpZone.centerX, 2) + Math.pow(y - levelUpZone.centerY, 2)
         );
         if (distance < minDistance) {
             return true;
@@ -5061,33 +6789,33 @@ function generateRandomPortals() {
     
     if (bluePortalCorner === 0) {
         // Blue portal in bottom-left corner
-        blueCenterX = margin + REGION_CONFIG.portal.width / 2;
-        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2 - 50; // Raised by 50 pixels
+        blueCenterX = margin + ZONE_CONFIG.portal.width / 2;
+        blueCenterY = canvasHeight - margin - ZONE_CONFIG.portal.height / 2 - 50; // Raised by 50 pixels
         
         // Orange portal in top-right corner
-        orangeCenterX = canvasWidth - margin - REGION_CONFIG.portal.width / 2;
-        orangeCenterY = margin + REGION_CONFIG.portal.height / 2;
+        orangeCenterX = canvasWidth - margin - ZONE_CONFIG.portal.width / 2;
+        orangeCenterY = margin + ZONE_CONFIG.portal.height / 2;
     } else {
         // Blue portal in bottom-right corner
-        blueCenterX = canvasWidth - margin - REGION_CONFIG.portal.width / 2;
-        blueCenterY = canvasHeight - margin - REGION_CONFIG.portal.height / 2 - 50; // Raised by 50 pixels
+        blueCenterX = canvasWidth - margin - ZONE_CONFIG.portal.width / 2;
+        blueCenterY = canvasHeight - margin - ZONE_CONFIG.portal.height / 2 - 50; // Raised by 50 pixels
         
         // Orange portal in top-left corner
-        orangeCenterX = margin + REGION_CONFIG.portal.width / 2;
-        orangeCenterY = margin + REGION_CONFIG.portal.height / 2;
+        orangeCenterX = margin + ZONE_CONFIG.portal.width / 2;
+        orangeCenterY = margin + ZONE_CONFIG.portal.height / 2;
     }
     
     // Create the blue (IN) portal
-    createPortalRegion(blueCenterX, blueCenterY, 'blue');
+    createPortalZone(blueCenterX, blueCenterY, 'blue');
     
     // Create the orange (OUT) portal
-    createPortalRegion(orangeCenterX, orangeCenterY, 'orange');
+    createPortalZone(orangeCenterX, orangeCenterY, 'orange');
     
     console.log(`Generated portals: Blue at (${blueCenterX}, ${blueCenterY}), Orange at (${orangeCenterX}, ${orangeCenterY})`);
 }
 
-// Create the permanent bottom cash region
-createPermanentBottomCashRegion();
+// Create the permanent bottom cash zone
+createPermanentBottomCashZone();
 
 // Generate random portals at game start (FIRST)
 generateRandomPortals();
@@ -5098,11 +6826,11 @@ generateRandomWalls();
 // Generate random multipliers at game start (THIRD - avoids portals and walls)
 generateRandomMultipliers();
 
-// Generate random cash regions at game start (FOURTH - avoids portals, walls, and multipliers)
-generateRandomCashRegions();
+// Generate random cash zones at game start (FOURTH - avoids portals, walls, and multipliers)
+generateRandomCashZones();
 
-// Generate random level up regions at game start (FIFTH - avoids portals, walls, multipliers, and cash regions)
-generateRandomLevelUpRegions();
+// Generate random level up zones at game start (FIFTH - avoids portals, walls, multipliers, and cash zones)
+generateRandomLevelUpZones();
 
 // Calculate initial spawn position for turn 1
 calculateSpawnPosition();
