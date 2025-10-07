@@ -1057,7 +1057,7 @@ const tankWall = Bodies.rectangle(
 World.add(world, [leftWall, rightWall, tankTopWall]);
 
 // Function to create a circle at position
-function createCircle(x, y, isTestBall = false, level = 1) {
+function createCircle(x, y, isTestBall = false, level = 1, radius = null) {
     // Determine ball color based on level
     let ballColor;
     if (isTestBall) {
@@ -1066,7 +1066,10 @@ function createCircle(x, y, isTestBall = false, level = 1) {
         ballColor = getBallColorForLevel(level);
     }
     
-    const circle = Bodies.circle(x, y, physicsSettings.circleSize, {
+    // Use provided radius or default to physicsSettings.circleSize
+    const ballRadius = radius !== null ? radius : physicsSettings.circleSize;
+    
+    const circle = Bodies.circle(x, y, ballRadius, {
         restitution: physicsSettings.bounciness,
         friction: physicsSettings.friction,
         density: physicsSettings.density,
@@ -2555,7 +2558,7 @@ function handleMultiplierCollision(ball, zone) {
             // Create new ball with slight offset to avoid overlap
             const offsetX = (Math.random() - 0.5) * ballRadius * 2;
             const offsetY = (Math.random() - 0.5) * ballRadius * 2;
-            const newBall = createCircle(ballX + offsetX, ballY + offsetY, ball.isTestBall, ball.level);
+            const newBall = createCircle(ballX + offsetX, ballY + offsetY, ball.isTestBall, ball.level, ballRadius);
             
             // Give the new ball some velocity similar to the original
             const velocityMultiplier = 0.5 + Math.random() * 0.5; // 0.5 to 1.0
