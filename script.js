@@ -1891,6 +1891,7 @@ function createAntiGravityZone(centerX, centerY, rotation = 0) {
         rotation: 0, // Anti-gravity zones are always locked at 0 rotation
         level: 1, // Start at level 1
         id: Date.now() + Math.random(), // Unique ID for tracking
+        enabled: true, // Default to enabled
         body: body // Reference to Matter.js body
     };
     
@@ -1900,6 +1901,10 @@ function createAntiGravityZone(centerX, centerY, rotation = 0) {
     objectCountElement.textContent = objectCount;
     
     antiGravityZones.push(zone);
+    
+    // Update the anti-gravity controls UI
+    updateAntiGravityControls();
+    
     return zone;
 }
 
@@ -2166,6 +2171,10 @@ function removeObjectAt(x, y) {
             objectCount--;
             objectCountElement.textContent = objectCount;
             antiGravityZones.splice(i, 1);
+            
+            // Update the anti-gravity controls UI
+            updateAntiGravityControls();
+            
             console.log('Removed anti-gravity zone');
             return true;
         }
@@ -2239,6 +2248,9 @@ function clearAllObjects() {
     antiGravityZones = [];
     objectCount = 1; // Keep count of 1 for the permanent bottom cash zone
     objectCountElement.textContent = objectCount;
+    
+    // Update the anti-gravity controls UI
+    updateAntiGravityControls();
     
     // Reset drop button state and restore floor to default state (dropped/off)
     if (!isDropped) {
@@ -2781,6 +2793,11 @@ function handleLevelUpCollision(ball, zone) {
 
 // Function to handle anti-gravity zone collision
 function handleAntiGravityCollision(ball, zone) {
+    // Skip disabled zones
+    if (!zone.enabled) {
+        return;
+    }
+    
     // Check if this ball hasn't been affected by this anti-gravity zone yet
     if (!ball.antiGravityAffectedBy) {
         ball.antiGravityAffectedBy = new Set();
@@ -4344,6 +4361,9 @@ multiplierSlider.addEventListener('input', (e) => {
 
 
 
+    // Initialize anti-gravity controls UI
+    updateAntiGravityControls();
+    
 }); // End of DOMContentLoaded event listener
 
 
@@ -5254,6 +5274,40 @@ function calculateFPS(currentTime) {
     }
 }
 
+// Function to update anti-gravity zone toggle controls
+function updateAntiGravityControls() {
+    const togglesContainer = document.getElementById('antiGravityToggles');
+    if (!togglesContainer) return;
+    
+    // Clear existing toggles
+    togglesContainer.innerHTML = '';
+    
+    // Create toggle for each anti-gravity zone
+    antiGravityZones.forEach((zone, index) => {
+        const toggleDiv = document.createElement('div');
+        toggleDiv.className = `anti-gravity-toggle ${zone.enabled ? '' : 'disabled'}`;
+        toggleDiv.innerHTML = `
+            <span class="anti-gravity-toggle-label">Zone ${index + 1}</span>
+            <div class="toggle-switch ${zone.enabled ? 'active' : 'disabled'}" data-zone-id="${zone.id}"></div>
+        `;
+        
+        // Add click event listener to toggle switch
+        const toggleSwitch = toggleDiv.querySelector('.toggle-switch');
+        toggleSwitch.addEventListener('click', () => {
+            zone.enabled = !zone.enabled;
+            updateAntiGravityControls(); // Refresh the UI
+        });
+        
+        togglesContainer.appendChild(toggleDiv);
+    });
+    
+    // Hide the panel if no zones exist
+    const panel = document.getElementById('antiGravityControlsPanel');
+    if (panel) {
+        panel.style.display = antiGravityZones.length > 0 ? 'block' : 'none';
+    }
+}
+
 // Render function
 function render() {
     // Clear canvas
@@ -5783,8 +5837,14 @@ function render() {
             }
             lineWidth = 3;
         } else {
-            fillColor = ZONE_CONFIG.antiGravity.color;
-            borderColor = ZONE_CONFIG.antiGravity.borderColor;
+            // Check if zone is enabled
+            if (zone.enabled) {
+                fillColor = ZONE_CONFIG.antiGravity.color;
+                borderColor = ZONE_CONFIG.antiGravity.borderColor;
+            } else {
+                fillColor = 'transparent'; // No fill when disabled
+                borderColor = ZONE_CONFIG.antiGravity.borderColor;
+            }
             lineWidth = ZONE_CONFIG.antiGravity.lineWidth;
         }
         
